@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CatBook — ธีมวิเชียรมาศ Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* ── Wichianmat Palette ── */
+    --cream:       #FBF5EC;   /* ขนลำตัว — พื้นหลัง */
+    --cream-dark:  #F0E6D3;   /* พื้นหลัง card เข้มขึ้น */
+    --seal:        #3B1F0E;   /* สี point เข้ม — primary */
+    --seal-mid:    #6B3A22;   /* seal กลาง — hover */
+    --seal-light:  #A0632E;   /* seal อ่อน — accent */
+    --eye-blue:    #1D5FA8;   /* ตาสีฟ้า — interactive */
+    --eye-light:   #4A90D9;   /* ฟ้าอ่อน — link / hover */
+    --eye-pale:    #D6E9F8;   /* ฟ้าซีด — bg highlight */
+    --warm-gray:   #8C7B6B;   /* เทาอุ่น — secondary text */
+    --divider:     #E2D5C3;   /* เส้น divider */
+    --white:       #FFFDF9;   /* ขาวอุ่น */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--cream);
+    font-family: 'Kanit', sans-serif;
+    color: var(--seal);
+    min-height: 100vh;
+  }
+
+  /* ══════════════════════════════
+     SECTION HEADERS
+  ══════════════════════════════ */
+  .page-title {
+    text-align: center;
+    padding: 36px 16px 8px;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--seal);
+  }
+  .page-sub {
+    text-align: center;
+    color: var(--warm-gray);
+    font-size: 13px;
+    margin-bottom: 36px;
+  }
+  .section-label {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--seal-light);
+    margin: 40px 0 16px;
+  }
+
+  /* ══════════════════════════════
+     PALETTE SWATCHES
+  ══════════════════════════════ */
+  .palette {
+    display: flex; flex-wrap: wrap; gap: 12px;
+    justify-content: center; max-width: 700px; margin: 0 auto 8px;
+  }
+  .swatch {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    width: 90px;
+  }
+  .swatch-box {
+    width: 90px; height: 56px; border-radius: 12px;
+    border: 1px solid rgba(0,0,0,0.08);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+  .swatch-name { font-size: 11px; color: var(--seal); font-weight: 600; }
+  .swatch-hex  { font-size: 10px; color: var(--warm-gray); font-family: monospace; }
+
+  /* ══════════════════════════════
+     TOP NAVIGATION
+  ══════════════════════════════ */
+  .topnav {
+    background: var(--white);
+    border-bottom: 1px solid var(--divider);
+    box-shadow: 0 1px 8px rgba(59,31,14,0.06);
+    display: flex; align-items: center;
+    padding: 0 16px;
+    height: 56px;
+    max-width: 900px; margin: 0 auto;
+    border-radius: 14px;
+    position: relative;
+  }
+  .nav-logo {
+    font-size: 20px; font-weight: 700;
+    color: var(--seal);
+    display: flex; align-items: center; gap: 6px;
+    flex: 0 0 auto;
+  }
+  .nav-logo span { color: var(--eye-blue); }
+  .nav-center {
+    flex: 1; display: flex; justify-content: center; gap: 4px;
+  }
+  .nav-btn {
+    padding: 8px 14px; border-radius: 10px; border: none;
+    background: none; cursor: pointer; color: var(--warm-gray);
+    font-size: 13px; font-weight: 600; font-family: inherit;
+    transition: all 0.15s;
+  }
+  .nav-btn:hover { background: var(--cream-dark); color: var(--seal); }
+  .nav-btn.active {
+    background: var(--eye-pale);
+    color: var(--eye-blue);
+    border-bottom: 2px solid var(--eye-blue);
+  }
+  .nav-right {
+    display: flex; align-items: center; gap: 8px; flex: 0 0 auto;
+  }
+  .nav-avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 2px solid var(--seal-light);
+    object-fit: cover;
+  }
+  .nav-icon-btn {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--cream-dark); border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--seal); font-size: 15px;
+    transition: background 0.15s;
+  }
+  .nav-icon-btn:hover { background: var(--divider); }
+
+  /* ══════════════════════════════
+     LAYOUT (SIDEBAR + FEED)
+  ══════════════════════════════ */
+  .layout {
+    display: flex; gap: 16px; max-width: 900px;
+    margin: 20px auto; padding: 0 16px;
+    align-items: flex-start;
+  }
+
+  /* ── LEFT SIDEBAR ── */
+  .sidebar {
+    width: 240px; flex-shrink: 0;
+    background: var(--white);
+    border-radius: 14px;
+    border: 1px solid var(--divider);
+    overflow: hidden;
+    box-shadow: 0 1px 6px rgba(59,31,14,0.05);
+  }
+  .sidebar-profile {
+    padding: 20px 16px 16px;
+    border-bottom: 1px solid var(--divider);
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .sidebar-avatar {
+    width: 64px; height: 64px; border-radius: 50%; object-fit: cover;
+    border: 3px solid var(--seal-light);
+    box-shadow: 0 2px 8px rgba(59,31,14,0.15);
+  }
+  .sidebar-name { font-weight: 700; font-size: 15px; color: var(--seal); }
+  .sidebar-breed { font-size: 12px; color: var(--warm-gray); }
+  .sidebar-stats {
+    display: flex; gap: 16px; margin-top: 4px;
+  }
+  .stat { text-align: center; }
+  .stat-n { font-weight: 700; font-size: 14px; color: var(--seal); }
+  .stat-l { font-size: 10px; color: var(--warm-gray); }
+
+  .sidebar-menu { padding: 8px; }
+  .menu-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 10px; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: var(--seal);
+    transition: background 0.12s;
+  }
+  .menu-item:hover { background: var(--cream-dark); }
+  .menu-item.active { background: var(--eye-pale); color: var(--eye-blue); }
+  .menu-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  /* ── FEED ── */
+  .feed { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+
+  /* Create Post Box */
+  .create-box {
+    background: var(--white); border-radius: 14px;
+    border: 1px solid var(--divider);
+    padding: 14px 16px;
+    box-shadow: 0 1px 6px rgba(59,31,14,0.05);
+  }
+  .create-top { display: flex; gap: 10px; align-items: center; }
+  .create-input {
+    flex: 1; background: var(--cream); border-radius: 24px;
+    padding: 10px 16px; font-size: 13px; color: var(--warm-gray);
+    border: 1px solid var(--divider); font-family: inherit;
+    cursor: pointer;
+  }
+  .create-divider { height: 1px; background: var(--divider); margin: 12px 0; }
+  .create-actions { display: flex; gap: 4px; }
+  .create-action {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    gap: 6px; padding: 7px; border-radius: 10px; cursor: pointer;
+    font-size: 12px; font-weight: 600; color: var(--warm-gray);
+    border: none; background: none; font-family: inherit;
+    transition: background 0.12s;
+  }
+  .create-action:hover { background: var(--cream-dark); }
+
+  /* Post Card */
+  .post-card {
+    background: var(--white); border-radius: 14px;
+    border: 1px solid var(--divider);
+    box-shadow: 0 1px 6px rgba(59,31,14,0.05);
+    overflow: hidden;
+  }
+  .post-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px 10px;
+  }
+  .post-avatar {
+    width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
+    border: 2px solid var(--divider);
+  }
+  .post-name { font-weight: 700; font-size: 14px; color: var(--seal); }
+  .post-time { font-size: 11px; color: var(--warm-gray); }
+  .post-content { padding: 0 16px 12px; font-size: 14px; line-height: 1.6; color: var(--seal); }
+  .post-content .mention { color: var(--eye-blue); font-weight: 600; }
+  .post-img { width: 100%; max-height: 280px; object-fit: cover; }
+  .post-stats {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 16px; font-size: 12px; color: var(--warm-gray);
+    border-top: 1px solid var(--divider);
+  }
+  .post-actions { display: flex; border-top: 1px solid var(--divider); }
+  .action-btn {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    gap: 6px; padding: 10px; font-size: 13px; font-weight: 600;
+    color: var(--warm-gray); border: none; background: none;
+    cursor: pointer; font-family: inherit; transition: all 0.12s;
+    border-radius: 0;
+  }
+  .action-btn:hover { background: var(--cream); color: var(--seal); }
+  .action-btn.liked { color: var(--eye-blue); }
+
+  /* ══════════════════════════════
+     BUTTONS
+  ══════════════════════════════ */
+  .btn-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .btn {
+    padding: 10px 22px; border-radius: 10px; border: none;
+    cursor: pointer; font-size: 13px; font-weight: 700;
+    font-family: inherit; transition: all 0.15s;
+  }
+  .btn-primary   { background: var(--seal); color: var(--cream); }
+  .btn-primary:hover { background: var(--seal-mid); }
+  .btn-secondary { background: var(--eye-blue); color: white; }
+  .btn-secondary:hover { background: var(--eye-light); }
+  .btn-outline   { background: transparent; color: var(--seal); border: 2px solid var(--seal); }
+  .btn-outline:hover { background: var(--cream-dark); }
+  .btn-ghost     { background: var(--cream-dark); color: var(--warm-gray); }
+  .btn-ghost:hover { background: var(--divider); color: var(--seal); }
+  .btn-danger    { background: #C0392B; color: white; }
+
+  /* ══════════════════════════════
+     NOTIFICATION BADGE
+  ══════════════════════════════ */
+  .notif-card {
+    background: var(--white); border-radius: 14px;
+    border: 1px solid var(--divider);
+    overflow: hidden; max-width: 340px;
+    box-shadow: 0 4px 16px rgba(59,31,14,0.1);
+  }
+  .notif-header {
+    padding: 14px 16px; font-weight: 700; font-size: 14px;
+    color: var(--seal); border-bottom: 1px solid var(--divider);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .notif-item {
+    display: flex; gap: 10px; padding: 12px 16px; align-items: flex-start;
+    border-bottom: 1px solid var(--divider);
+    transition: background 0.12s; cursor: pointer;
+  }
+  .notif-item:hover { background: var(--cream); }
+  .notif-item.unread { background: var(--eye-pale); }
+  .notif-item.unread:hover { background: #C5DCF2; }
+  .notif-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--eye-blue); margin-top: 6px; flex-shrink: 0;
+  }
+  .notif-text { font-size: 13px; line-height: 1.5; color: var(--seal); flex: 1; }
+  .notif-text strong { color: var(--seal); }
+  .notif-time { font-size: 11px; color: var(--warm-gray); margin-top: 2px; }
+
+  /* ══════════════════════════════
+     PRODUCT CARD (SHOP)
+  ══════════════════════════════ */
+  .product-grid { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .product-card {
+    width: 160px; background: var(--white); border-radius: 14px;
+    border: 1px solid var(--divider); overflow: hidden;
+    box-shadow: 0 1px 6px rgba(59,31,14,0.05);
+    transition: box-shadow 0.15s;
+  }
+  .product-card:hover { box-shadow: 0 4px 16px rgba(59,31,14,0.12); }
+  .product-img-box {
+    height: 120px; background: var(--cream-dark);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 48px;
+  }
+  .product-info { padding: 10px 12px; }
+  .product-name { font-size: 13px; font-weight: 700; color: var(--seal); margin-bottom: 2px; }
+  .product-price { font-size: 13px; color: var(--eye-blue); font-weight: 700; }
+  .product-badge {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    background: var(--seal); color: var(--cream);
+    padding: 1px 7px; border-radius: 99px; margin-bottom: 6px;
+  }
+
+  /* ══════════════════════════════
+     TAG / MENTION
+  ══════════════════════════════ */
+  .mention-demo {
+    background: var(--white); border-radius: 14px;
+    border: 1px solid var(--divider); padding: 20px;
+    max-width: 460px; margin: 0 auto;
+  }
+  .mention-input-wrap {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--cream); border-radius: 24px;
+    padding: 8px 14px; border: 1px solid var(--divider);
+    margin-bottom: 12px;
+  }
+  .mention-input-wrap input {
+    flex: 1; background: none; border: none; outline: none;
+    font-family: inherit; font-size: 13px; color: var(--seal);
+  }
+  .mention-dropdown {
+    border: 1px solid var(--divider); border-radius: 12px; overflow: hidden;
+  }
+  .mention-header {
+    padding: 6px 12px; font-size: 11px; font-weight: 700;
+    color: var(--warm-gray); background: var(--cream);
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+  .mention-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; cursor: pointer; transition: background 0.12s;
+    border-top: 1px solid var(--divider);
+  }
+  .mention-item:hover { background: var(--eye-pale); }
+  .mention-item img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1.5px solid var(--divider); }
+  .mention-item-name { font-size: 13px; font-weight: 700; color: var(--seal); }
+  .mention-item-breed { font-size: 11px; color: var(--warm-gray); }
+
+  /* ══════════════════════════════
+     SCROLLBAR
+  ══════════════════════════════ */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--cream); }
+  ::-webkit-scrollbar-thumb { background: var(--divider); border-radius: 3px; }
+
+  /* ══════════════════════════════
+     WRAPPER
+  ══════════════════════════════ */
+  .container { max-width: 900px; margin: 0 auto; padding: 0 16px 60px; }
+  .center { display: flex; justify-content: center; }
+  .two-col { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; align-items: flex-start; }
+</style>
+</head>
+<body>
+
+<div class="page-title">🐱 ธีมวิเชียรมาศ</div>
+<p class="page-sub">Wichianmat — Siamese Cat Theme · Elegant Cream & Seal Brown</p>
+
+<div class="container">
+
+  <!-- ═══ PALETTE ═══ -->
+  <p class="section-label">Color Palette</p>
+  <div class="palette">
+    <div class="swatch">
+      <div class="swatch-box" style="background:#FBF5EC"></div>
+      <div class="swatch-name">Cream</div>
+      <div class="swatch-hex">#FBF5EC</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-box" style="background:#F0E6D3"></div>
+      <div class="swatch-name">Cream Dark</div>
+      <div class="swatch-hex">#F0E6D3</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-box" style="background:#A0632E"></div>
+      <div class="swatch-name">Seal Light</div>
+      <div class="swatch-hex">#A0632E</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-box" style="background:#6B3A22"></div>
+      <div class="swatch-name">Seal Mid</div>
+      <div class="swatch-hex">#6B3A22</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-box" style="background:#3B1F0E"></div>
+      <div class="swatch-name">Seal Dark</div>
+      <div class="swatch-hex">#3B1F0E</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-box" style="background:#1D5FA8"></div>
+      <div class="swatch-name">Eye Blue</div>
+      <div class="swatch-hex">#1D5FA8</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-box" style="background:#D6E9F8"></div>
+      <div class="swatch-name">Eye Pale</div>
+      <div class="swatch-hex">#D6E9F8</div>
+    </div>
+  </div>
+
+  <!-- ═══ NAVBAR ═══ -->
+  <p class="section-label">Top Navigation</p>
+  <div class="topnav">
+    <div class="nav-logo">🐾 Cat<span>Book</span></div>
+    <div class="nav-center">
+      <button class="nav-btn active">🏠 หน้าหลัก</button>
+      <button class="nav-btn">👥 เพื่อน</button>
+      <button class="nav-btn">🛍️ ร้านค้า</button>
+      <button class="nav-btn">🌐 สำรวจ</button>
+    </div>
+    <div class="nav-right">
+      <button class="nav-icon-btn">🔔</button>
+      <button class="nav-icon-btn">💬</button>
+      <img class="nav-avatar" src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=80&q=80" alt="avatar" />
+    </div>
+  </div>
+
+  <!-- ═══ LAYOUT ═══ -->
+  <p class="section-label">Feed Layout</p>
+  <div class="layout" style="max-width:900px;padding:0">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-profile">
+        <img class="sidebar-avatar" src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=160&q=80" alt="มะลิ" />
+        <div class="sidebar-name">มะลิ</div>
+        <div class="sidebar-breed">สก็อตติช โฟลด์</div>
+        <div class="sidebar-stats">
+          <div class="stat"><div class="stat-n">128</div><div class="stat-l">โพสต์</div></div>
+          <div class="stat"><div class="stat-n">342</div><div class="stat-l">เพื่อน</div></div>
+          <div class="stat"><div class="stat-n">1.2K</div><div class="stat-l">อุ้งเท้า</div></div>
+        </div>
+      </div>
+      <div class="sidebar-menu">
+        <div class="menu-item active"><span class="menu-icon">🏠</span> News Feed</div>
+        <div class="menu-item"><span class="menu-icon">😺</span> โปรไฟล์</div>
+        <div class="menu-item"><span class="menu-icon">🔔</span> การแจ้งเตือน</div>
+        <div class="menu-item"><span class="menu-icon">🛍️</span> ร้านค้า</div>
+        <div class="menu-item"><span class="menu-icon">🗺️</span> แผนที่แมว</div>
+        <div class="menu-item"><span class="menu-icon">⚙️</span> ตั้งค่า</div>
+      </div>
+    </div>
+
+    <!-- Feed -->
+    <div class="feed">
+
+      <!-- Create post -->
+      <div class="create-box">
+        <div class="create-top">
+          <img class="post-avatar" src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=80&q=80" alt="" style="border:2px solid #A0632E" />
+          <div class="create-input">คุณกำลังคิดอะไรอยู่เหมียว, มะลิ? (พิมพ์ @ เพื่อแท็กเพื่อน)</div>
+        </div>
+        <div class="create-divider"></div>
+        <div class="create-actions">
+          <button class="create-action">📷 รูปภาพ</button>
+          <button class="create-action">👥 แท็กเพื่อน</button>
+          <button class="create-action">😊 ความรู้สึก</button>
+          <button class="create-action">🐾 Meow</button>
+        </div>
+      </div>
+
+      <!-- Post card 1 -->
+      <div class="post-card">
+        <div class="post-header">
+          <img class="post-avatar" src="https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=80&q=80" alt="" />
+          <div>
+            <div class="post-name">ถุงเงิน <span style="font-weight:400;color:var(--warm-gray)">— รู้สึก 😋 หิวโซ</span></div>
+            <div class="post-time">15 นาทีที่แล้ว · 🌐</div>
+          </div>
+        </div>
+        <div class="post-content">
+          วันนี้แอบนอนอยู่บนหมอนทาส แล้วก็ <span class="mention">@มะลิ</span> มาด้วย ขอบคุณที่เป็นเพื่อนนอนให้นะเหมียว 🐾 ทาสเดินมาเห็นก็ถ่ายรูปทันที ฮ่าๆ
+        </div>
+        <img class="post-img" src="https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=600&q=80" alt="cat" />
+        <div class="post-stats">
+          <span>🐾 ส้มฉุน และอีก 42 ตัว</span>
+          <span>18 คอมเมนต์ · 5 แชร์</span>
+        </div>
+        <div class="post-actions">
+          <button class="action-btn liked">🐾 ส่งอุ้งเท้า</button>
+          <button class="action-btn">💬 คอมเมนต์</button>
+          <button class="action-btn">↗️ แชร์</button>
+        </div>
+      </div>
+
+      <!-- Post card 2 -->
+      <div class="post-card">
+        <div class="post-header">
+          <img class="post-avatar" src="https://images.unsplash.com/photo-1596854407944-bf87f6fdd49e?w=80&q=80" alt="" />
+          <div>
+            <div class="post-name">ส้มฉุน</div>
+            <div class="post-time">2 ชั่วโมงที่แล้ว · 🌐</div>
+          </div>
+        </div>
+        <div class="post-content">
+          เมี๊ยวๆ เมียว~ เมี้ยวหิวว เมี๊ยว 🐾 เหมียวๆๆ เมี้ยว! เมี้ยว @ถุงเงิน~เมี๊ยว เมี๊ยว~
+        </div>
+        <div class="post-stats">
+          <span>😺 และอีก 19 ตัว</span>
+          <span>7 คอมเมนต์</span>
+        </div>
+        <div class="post-actions">
+          <button class="action-btn">🐾 ส่งอุ้งเท้า</button>
+          <button class="action-btn">💬 คอมเมนต์</button>
+          <button class="action-btn">↗️ แชร์</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ BUTTONS ═══ -->
+  <p class="section-label">Buttons</p>
+  <div class="btn-row">
+    <button class="btn btn-primary">โพสต์</button>
+    <button class="btn btn-secondary">🐾 ติดตาม</button>
+    <button class="btn btn-outline">เพิ่มเพื่อน</button>
+    <button class="btn btn-ghost">ยกเลิก</button>
+    <button class="btn btn-danger">ลบโพสต์</button>
+  </div>
+
+  <!-- ═══ MENTION ═══ -->
+  <p class="section-label">@ Mention Dropdown</p>
+  <div class="mention-demo">
+    <div class="mention-input-wrap">
+      <img src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=40&q=80" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:1.5px solid #A0632E" />
+      <input value="วันนี้ไปเดินเล่นกับ @ถ" readonly />
+    </div>
+    <div class="mention-dropdown">
+      <div class="mention-header">แท็กเพื่อนเหมียว 🐾</div>
+      <div class="mention-item" style="background:var(--eye-pale)">
+        <img src="https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=80&q=80" alt="" />
+        <div>
+          <div class="mention-item-name">ถุงเงิน</div>
+          <div class="mention-item-breed">แมวไทย (สลิด)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ NOTIFICATIONS ═══ -->
+  <p class="section-label">Notifications</p>
+  <div class="center">
+    <div class="notif-card">
+      <div class="notif-header">
+        การแจ้งเตือน
+        <span style="font-size:11px;color:var(--eye-blue);cursor:pointer">อ่านทั้งหมด</span>
+      </div>
+      <div class="notif-item unread">
+        <div class="notif-dot"></div>
+        <img src="https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=40&q=80" style="width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0" />
+        <div>
+          <div class="notif-text"><strong>ถุงเงิน</strong> แท็กคุณในคอมเมนต์: "วันนี้ @มะลิ มาด้วย เมี๊ยวๆ"</div>
+          <div class="notif-time">เมื่อกี้นี้</div>
+        </div>
+      </div>
+      <div class="notif-item unread">
+        <div class="notif-dot"></div>
+        <img src="https://images.unsplash.com/photo-1596854407944-bf87f6fdd49e?w=40&q=80" style="width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0" />
+        <div>
+          <div class="notif-text"><strong>ส้มฉุน</strong> ถูกใจโพสต์ของคุณ</div>
+          <div class="notif-time">5 นาทีที่แล้ว</div>
+        </div>
+      </div>
+      <div class="notif-item">
+        <div class="notif-dot" style="background:transparent"></div>
+        <img src="https://images.unsplash.com/photo-1574158622682-e40e69881006?w=40&q=80" style="width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0" />
+        <div>
+          <div class="notif-text"><strong>บอส</strong> เริ่มติดตามคุณแล้ว</div>
+          <div class="notif-time">1 ชั่วโมงที่แล้ว</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SHOP CARDS ═══ -->
+  <p class="section-label">Shop Cards</p>
+  <div class="product-grid">
+    <div class="product-card">
+      <div class="product-img-box">🐟</div>
+      <div class="product-info">
+        <div class="product-badge">ขายดี</div>
+        <div class="product-name">ปลาทูน่ากระป๋อง</div>
+        <div class="product-price">฿ 45</div>
+      </div>
+    </div>
+    <div class="product-card">
+      <div class="product-img-box">🧶</div>
+      <div class="product-info">
+        <div class="product-badge">ใหม่</div>
+        <div class="product-name">ของเล่นไหมพรม</div>
+        <div class="product-price">฿ 120</div>
+      </div>
+    </div>
+    <div class="product-card">
+      <div class="product-img-box">🛏️</div>
+      <div class="product-info">
+        <div class="product-badge" style="background:var(--eye-blue)">แนะนำ</div>
+        <div class="product-name">ที่นอนแมวรีบาวด์</div>
+        <div class="product-price">฿ 890</div>
+      </div>
+    </div>
+    <div class="product-card">
+      <div class="product-img-box">🏠</div>
+      <div class="product-info">
+        <div class="product-name">บ้านแมวลับเล็บ</div>
+        <div class="product-price">฿ 1,290</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p style="text-align:center;color:var(--warm-gray);font-size:12px;padding-bottom:32px">ชอบธีมนี้มั้ย? หรืออยากปรับสี/สไตล์อะไรเพิ่ม บอกได้เลย 🐾</p>
+
+</body>
+</html>

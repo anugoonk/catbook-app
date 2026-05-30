@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>Cat Meme Generator — Preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #f0f2f5; font-family: 'Kanit', sans-serif; padding: 32px 16px; }
+  h2 { text-align: center; color: #333; margin-bottom: 8px; font-size: 22px; }
+  .sub { text-align: center; color: #888; font-size: 13px; margin-bottom: 28px; }
+
+  /* ── UI Mock ── */
+  .ui-card {
+    background: white; border-radius: 16px; padding: 20px 24px;
+    max-width: 480px; margin: 0 auto 36px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  .ui-label { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .template-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 16px; }
+  .tmpl-thumb {
+    width: 64px; height: 64px; border-radius: 10px; object-fit: cover;
+    border: 2px solid transparent; cursor: pointer; flex-shrink: 0; position: relative; overflow: hidden;
+  }
+  .tmpl-thumb.active { border-color: #4267B2; }
+  .tmpl-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .tmpl-thumb .tmpl-label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,0.55); color: white; font-size: 8px;
+    text-align: center; padding: 2px; font-weight: 700;
+  }
+  .input-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .mock-input {
+    background: #f0f2f5; border-radius: 10px; padding: 9px 14px;
+    font-size: 13px; color: #333; border: none; outline: none;
+    font-family: inherit; width: 100%;
+  }
+  .btn-row { display: flex; gap-8px; gap: 8px; }
+  .btn { padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer; font-size: 13px; font-weight: 700; font-family: inherit; }
+  .btn-main { background: #4267B2; color: white; flex: 1; }
+  .btn-share { background: #e8f0fe; color: #4267B2; }
+
+  /* ── Meme examples ── */
+  .section-title { text-align: center; font-size: 16px; font-weight: 700; color: #444; margin-bottom: 16px; }
+  .meme-grid { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; max-width: 900px; margin: 0 auto; }
+
+  .meme-card {
+    background: white; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1); width: 260px;
+  }
+  .meme-label { padding: 8px 14px; font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; background: #f9f9f9; border-top: 1px solid #eee; text-align: center; }
+
+  .meme-wrap { position: relative; width: 100%; }
+  .meme-wrap img { width: 100%; display: block; }
+  .meme-wrap .bg-overlay {
+    width: 260px; height: 200px; display: flex; align-items: center; justify-content: center;
+    font-size: 48px;
+  }
+
+  .meme-text {
+    position: absolute; left: 0; right: 0;
+    text-align: center;
+    font-family: Impact, 'Arial Black', sans-serif;
+    font-size: 22px;
+    color: white;
+    text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+    padding: 0 8px;
+    line-height: 1.2;
+    text-transform: uppercase;
+    word-break: break-word;
+  }
+  .meme-text.top { top: 8px; }
+  .meme-text.bottom { bottom: 8px; }
+
+  /* Drake style */
+  .drake-wrap { width: 260px; }
+  .drake-row { display: flex; height: 100px; }
+  .drake-left { width: 80px; flex-shrink: 0; position: relative; overflow: hidden; }
+  .drake-left .emoji { width: 80px; height: 100px; display: flex; align-items: center; justify-content: center; font-size: 36px; }
+  .drake-right {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 8px; font-size: 13px; font-weight: 700; color: #050505;
+    background: #f0f2f5; border-left: 2px solid #ddd; text-align: center;
+  }
+  .drake-divider { height: 2px; background: #ddd; }
+
+  /* Two-panel */
+  .panel-wrap { display: flex; }
+  .panel { flex: 1; position: relative; height: 160px; overflow: hidden; }
+  .panel .bg { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 52px; }
+  .panel-label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,0.6); color: white;
+    text-align: center; padding: 4px 6px; font-size: 11px; font-weight: 700;
+    font-family: Impact, sans-serif; text-transform: uppercase;
+    text-shadow: 1px 1px 0 #000;
+  }
+  .panel-divider { width: 2px; background: white; }
+
+  /* Bg colors */
+  .bg-orange { background: linear-gradient(135deg, #ff9a3c, #ffd89b); }
+  .bg-blue   { background: linear-gradient(135deg, #4267B2, #6b8dd6); }
+  .bg-gray   { background: linear-gradient(135deg, #b0b3b8, #e4e6eb); }
+  .bg-green  { background: linear-gradient(135deg, #56ab2f, #a8e063); }
+  .bg-pink   { background: linear-gradient(135deg, #f093fb, #f5576c); }
+  .bg-dark   { background: linear-gradient(135deg, #1a1a2e, #302b63); }
+  .bg-yellow { background: linear-gradient(135deg, #f7971e, #ffd200); }
+  .bg-teal   { background: linear-gradient(135deg, #2193b0, #6dd5ed); }
+</style>
+</head>
+<body>
+
+<h2>🐾 Cat Meme Generator</h2>
+<p class="sub">ตัวอย่าง UI และ template ที่จะมีในแอป</p>
+
+<!-- UI Mock -->
+<div class="ui-card">
+  <div class="ui-label">เลือก Template</div>
+  <div class="template-strip">
+    <div class="tmpl-thumb active">
+      <div class="bg-orange" style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:28px">😾</div>
+      <div class="tmpl-label">Classic</div>
+    </div>
+    <div class="tmpl-thumb">
+      <div class="bg-blue" style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:28px">😺</div>
+      <div class="tmpl-label">Drake</div>
+    </div>
+    <div class="tmpl-thumb">
+      <div class="bg-pink" style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:28px">😻</div>
+      <div class="tmpl-label">VS</div>
+    </div>
+    <div class="tmpl-thumb">
+      <div class="bg-green" style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:28px">😸</div>
+      <div class="tmpl-label">Success</div>
+    </div>
+    <div class="tmpl-thumb">
+      <div class="bg-dark" style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:28px">🙀</div>
+      <div class="tmpl-label">Shocked</div>
+    </div>
+    <div class="tmpl-thumb">
+      <div class="bg-yellow" style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:28px">😹</div>
+      <div class="tmpl-label">Haha</div>
+    </div>
+  </div>
+
+  <div class="input-row">
+    <div class="ui-label">ข้อความบน</div>
+    <input class="mock-input" value="ทาสกลับบ้านดึกทุกวัน" readonly />
+    <div class="ui-label">ข้อความล่าง</div>
+    <input class="mock-input" value="แต่ตื่นมาให้อาหารฉันทันทีนะ" readonly />
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-share">⬇️ บันทึก</button>
+    <button class="btn btn-main">📤 แชร์ลง Feed</button>
+  </div>
+</div>
+
+<!-- Meme Examples -->
+<p class="section-title">ตัวอย่าง Meme ที่สร้างได้</p>
+
+<div class="meme-grid">
+
+  <!-- 1. Classic top/bottom -->
+  <div class="meme-card">
+    <div class="meme-wrap">
+      <div class="bg-orange bg-overlay">😾</div>
+      <div class="meme-text top">ทาสลืมให้อาหาร</div>
+      <div class="meme-text bottom">จะนอนทับหน้าตอนตี 3</div>
+    </div>
+    <div class="meme-label">Classic — ข้อความบน/ล่าง</div>
+  </div>
+
+  <!-- 2. Drake style -->
+  <div class="meme-card">
+    <div class="drake-wrap">
+      <div class="drake-row">
+        <div class="drake-left"><div class="emoji bg-gray">🙅</div></div>
+        <div class="drake-right">ตื่นตีห้าไปทำงาน</div>
+      </div>
+      <div class="drake-divider"></div>
+      <div class="drake-row">
+        <div class="drake-left"><div class="emoji bg-blue" style="color:white">👉</div></div>
+        <div class="drake-right">ตื่นตีห้าเพื่อนั่งจ้องทาสตื่น</div>
+      </div>
+    </div>
+    <div class="meme-label">Drake — ไม่เอา / เอา</div>
+  </div>
+
+  <!-- 3. VS Panel -->
+  <div class="meme-card">
+    <div class="panel-wrap">
+      <div class="panel">
+        <div class="bg bg-pink">😿</div>
+        <div class="panel-label">ก่อนทาสกลับบ้าน</div>
+      </div>
+      <div class="panel-divider"></div>
+      <div class="panel">
+        <div class="bg bg-blue" style="color:white">😻</div>
+        <div class="panel-label">หลังทาสกลับบ้าน 0.3 วิ</div>
+      </div>
+    </div>
+    <div class="meme-label">VS — สองพาเนล</div>
+  </div>
+
+  <!-- 4. Success Cat -->
+  <div class="meme-card">
+    <div class="meme-wrap">
+      <div class="bg-green bg-overlay" style="font-size:60px">😸</div>
+      <div class="meme-text top">เมื่อทาสซื้อ</div>
+      <div class="meme-text bottom">ปลาทูน่ากระป๋องใหม่ 🐟</div>
+    </div>
+    <div class="meme-label">Success Cat</div>
+  </div>
+
+  <!-- 5. Shocked -->
+  <div class="meme-card">
+    <div class="meme-wrap">
+      <div class="bg-dark bg-overlay" style="font-size:60px">🙀</div>
+      <div class="meme-text top">เมื่อได้ยินเสียง</div>
+      <div class="meme-text bottom">เปิดกระป๋องอาหาร</div>
+    </div>
+    <div class="meme-label">Shocked Cat</div>
+  </div>
+
+  <!-- 6. Haha / LOL -->
+  <div class="meme-card">
+    <div class="meme-wrap">
+      <div class="bg-yellow bg-overlay" style="font-size:60px">😹</div>
+      <div class="meme-text top">ทาส: "แมวฉันไม่กินขนม"</div>
+      <div class="meme-text bottom">ฉัน: 555555</div>
+    </div>
+    <div class="meme-label">LOL Cat</div>
+  </div>
+
+  <!-- 7. Waiting -->
+  <div class="meme-card">
+    <div class="meme-wrap">
+      <div class="bg-teal bg-overlay" style="font-size:60px">😴</div>
+      <div class="meme-text top">นอนรอทาสกลับ</div>
+      <div class="meme-text bottom">มา 18 ชั่วโมงแล้ว</div>
+    </div>
+    <div class="meme-label">Waiting Cat</div>
+  </div>
+
+  <!-- 8. Grumpy -->
+  <div class="meme-card">
+    <div class="meme-wrap">
+      <div class="bg-orange bg-overlay" style="font-size:60px;background:linear-gradient(135deg,#c0392b,#e74c3c)">😾</div>
+      <div class="meme-text top">วันดีๆ ของฉัน</div>
+      <div class="meme-text bottom">จนกว่าทาสจะอุ้ม</div>
+    </div>
+    <div class="meme-label">Grumpy Cat</div>
+  </div>
+
+</div>
+
+<p style="text-align:center;color:#aaa;font-size:12px;margin-top:28px">ชอบ template ไหน หรืออยากเพิ่ม/ปรับ บอกได้เลย 🐾</p>
+
+</body>
+</html>

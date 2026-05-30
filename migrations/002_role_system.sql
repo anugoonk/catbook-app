@@ -1,0 +1,2 @@
+ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'USER';
+UPDATE users SET role = 'ADMIN' WHERE is_admin = 1;

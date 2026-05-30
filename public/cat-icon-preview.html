@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>Cat Icon Preview</title>
+<style>
+  body { background: #f0f2f5; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 40px; gap: 40px; }
+  .row { display: flex; gap: 32px; align-items: flex-end; flex-wrap: wrap; justify-content: center; }
+  .card { background: white; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  .label { font-size: 13px; color: #666; font-weight: 600; }
+  .sizes { display: flex; gap: 16px; align-items: center; }
+  h2 { color: #333; margin: 0; }
+</style>
+</head>
+<body>
+
+<h2>🐾 CatBook Icon — ตัวอย่าง 2 แมว</h2>
+
+<div class="row">
+
+  <!-- Style 1: Minimal Geometric -->
+  <div class="card">
+    <div class="label">Style 1 — Minimal</div>
+    <div class="sizes">
+      <!-- 64px -->
+      <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <rect width="64" height="64" rx="14" fill="#4267B2"/>
+        <!-- Left cat -->
+        <polygon points="14,22 11,14 18,18" fill="white"/>
+        <polygon points="22,22 25,14 18,18" fill="white"/>
+        <circle cx="18" cy="28" r="9" fill="white"/>
+        <circle cx="15" cy="27" r="1.2" fill="#4267B2"/>
+        <circle cx="21" cy="27" r="1.2" fill="#4267B2"/>
+        <path d="M16,30 Q18,32 20,30" stroke="#4267B2" stroke-width="1" fill="none" stroke-linecap="round"/>
+        <!-- Right cat -->
+        <polygon points="42,22 39,14 46,18" fill="#f5a623"/>
+        <polygon points="50,22 53,14 46,18" fill="#f5a623"/>
+        <circle cx="46" cy="28" r="9" fill="#f5a623"/>
+        <circle cx="43" cy="27" r="1.2" fill="white"/>
+        <circle cx="49" cy="27" r="1.2" fill="white"/>
+        <path d="M44,30 Q46,32 48,30" stroke="white" stroke-width="1" fill="none" stroke-linecap="round"/>
+        <!-- Tails -->
+        <path d="M10,44 Q8,38 12,36" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M54,44 Q56,38 52,36" stroke="#f5a623" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      </svg>
+      <!-- 32px -->
+      <svg width="32" height="32" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <rect width="64" height="64" rx="14" fill="#4267B2"/>
+        <polygon points="14,22 11,14 18,18" fill="white"/>
+        <polygon points="22,22 25,14 18,18" fill="white"/>
+        <circle cx="18" cy="28" r="9" fill="white"/>
+        <circle cx="15" cy="27" r="1.2" fill="#4267B2"/>
+        <circle cx="21" cy="27" r="1.2" fill="#4267B2"/>
+        <path d="M16,30 Q18,32 20,30" stroke="#4267B2" stroke-width="1" fill="none" stroke-linecap="round"/>
+        <polygon points="42,22 39,14 46,18" fill="#f5a623"/>
+        <polygon points="50,22 53,14 46,18" fill="#f5a623"/>
+        <circle cx="46" cy="28" r="9" fill="#f5a623"/>
+        <circle cx="43" cy="27" r="1.2" fill="white"/>
+        <circle cx="49" cy="27" r="1.2" fill="white"/>
+        <path d="M44,30 Q46,32 48,30" stroke="white" stroke-width="1" fill="none" stroke-linecap="round"/>
+        <path d="M10,44 Q8,38 12,36" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M54,44 Q56,38 52,36" stroke="#f5a623" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      </svg>
+      <!-- 16px -->
+      <svg width="16" height="16" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <rect width="64" height="64" rx="14" fill="#4267B2"/>
+        <polygon points="14,22 11,14 18,18" fill="white"/>
+        <polygon points="22,22 25,14 18,18" fill="white"/>
+        <circle cx="18" cy="28" r="9" fill="white"/>
+        <circle cx="15" cy="27" r="1.2" fill="#4267B2"/>
+        <circle cx="21" cy="27" r="1.2" fill="#4267B2"/>
+        <polygon points="42,22 39,14 46,18" fill="#f5a623"/>
+        <polygon points="50,22 53,14 46,18" fill="#f5a623"/>
+        <circle cx="46" cy="28" r="9" fill="#f5a623"/>
+        <circle cx="43" cy="27" r="1.2" fill="white"/>
+        <circle cx="49" cy="27" r="1.2" fill="white"/>
+      </svg>
+    </div>
+    <div class="label">64px · 32px · 16px</div>
+  </div>
+
+  <!-- Style 2: Rounded Duo -->
+  <div class="card">
+    <div class="label">Style 2 — Rounded Duo</div>
+    <div class="sizes">
+      <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <rect width="64" height="64" rx="32" fill="#4267B2"/>
+        <!-- Left cat (white) -->
+        <ellipse cx="22" cy="35" rx="11" ry="10" fill="white"/>
+        <ellipse cx="22" cy="34" rx="10" ry="9" fill="white"/>
+        <!-- ears -->
+        <polygon points="14,26 12,18 20,24" fill="white"/>
+        <polygon points="30,26 32,18 24,24" fill="white"/>
+        <!-- inner ears -->
+        <polygon points="15,25 13.5,20 19,23.5" fill="#ffc0cb"/>
+        <polygon points="29,25 30.5,20 25,23.5" fill="#ffc0cb"/>
+        <!-- face -->
+        <circle cx="18.5" cy="33" r="1.5" fill="#4267B2"/>
+        <circle cx="25.5" cy="33" r="1.5" fill="#4267B2"/>
+        <path d="M20,36 Q22,38 24,36" stroke="#4267B2" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+        <!-- Right cat (gold) -->
+        <ellipse cx="42" cy="35" rx="11" ry="10" fill="#f5a623"/>
+        <polygon points="34,26 32,18 40,24" fill="#f5a623"/>
+        <polygon points="50,26 52,18 44,24" fill="#f5a623"/>
+        <polygon points="35,25 33.5,20 39,23.5" fill="#ffda85"/>
+        <polygon points="49,25 50.5,20 45,23.5" fill="#ffda85"/>
+        <circle cx="38.5" cy="33" r="1.5" fill="white"/>
+        <circle cx="45.5" cy="33" r="1.5" fill="white"/>
+        <path d="M40,36 Q42,38 44,36" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+        <!-- they're touching/close -->
+        <circle cx="32" cy="34" r="1" fill="#e0e0e0" opacity="0.5"/>
+      </svg>
+      <svg width="32" height="32" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <rect width="64" height="64" rx="32" fill="#4267B2"/>
+        <ellipse cx="22" cy="35" rx="11" ry="10" fill="white"/>
+        <polygon points="14,26 12,18 20,24" fill="white"/>
+        <polygon points="30,26 32,18 24,24" fill="white"/>
+        <polygon points="15,25 13.5,20 19,23.5" fill="#ffc0cb"/>
+        <polygon points="29,25 30.5,20 25,23.5" fill="#ffc0cb"/>
+        <circle cx="18.5" cy="33" r="1.5" fill="#4267B2"/>
+        <circle cx="25.5" cy="33" r="1.5" fill="#4267B2"/>
+        <path d="M20,36 Q22,38 24,36" stroke="#4267B2" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+        <ellipse cx="42" cy="35" rx="11" ry="10" fill="#f5a623"/>
+        <polygon points="34,26 32,18 40,24" fill="#f5a623"/>
+        <polygon points="50,26 52,18 44,24" fill="#f5a623"/>
+        <polygon points="35,25 33.5,20 39,23.5" fill="#ffda85"/>
+        <polygon points="49,25 50.5,20 45,23.5" fill="#ffda85"/>
+        <circle cx="38.5" cy="33" r="1.5" fill="white"/>
+        <circle cx="45.5" cy="33" r="1.5" fill="white"/>
+        <path d="M40,36 Q42,38 44,36" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+      </svg>
+      <svg width="16" height="16" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <rect width="64" height="64" rx="32" fill="#4267B2"/>
+        <ellipse cx="22" cy="35" rx="11" ry="10" fill="white"/>
+        <polygon points="14,26 12,18 20,24" fill="white"/>
+        <polygon points="30,26 32,18 24,24" fill="white"/>
+        <circle cx="18.5" cy="33" r="1.5" fill="#4267B2"/>
+        <circle cx="25.5" cy="33" r="1.5" fill="#4267B2"/>
+        <ellipse cx="42" cy="35" rx="11" ry="10" fill="#f5a623"/>
+        <polygon points="34,26 32,18 40,24" fill="#f5a623"/>
+        <polygon points="50,26 52,18 44,24" fill="#f5a623"/>
+        <circle cx="38.5" cy="33" r="1.5" fill="white"/>
+        <circle cx="45.5" cy="33" r="1.5" fill="white"/>
+      </svg>
+    </div>
+    <div class="label">64px · 32px · 16px</div>
+  </div>
+
+  <!-- Style 3: Silhouette -->
+  <div class="card">
+    <div class="label">Style 3 — Silhouette</div>
+    <div class="sizes">
+      <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <rect width="64" height="64" rx="14" fill="#1a1a2e"/>
+        <!-- moon -->
+        <circle cx="50" cy="12" r="7" fill="#f5a623" opacity="0.9"/>
+        <circle cx="54" cy="10" r="5.5" fill="#1a1a2e"/>
+        <!-- left cat silhouette -->
+        <path d="M8,48 L8,34 Q8,24 18,24 Q28,24 28,34 L28,48 Z" fill="#4267B2"/>
+        <polygon points="10,24 8,14 16,22" fill="#4267B2"/>
+        <polygon points="26,24 28,14 20,22" fill="#4267B2"/>
+        <circle cx="15" cy="33" r="1.2" fill="white" opacity="0.8"/>
+        <circle cx="21" cy="33" r="1.2" fill="white" opacity="0.8"/>
+        <!-- right cat silhouette -->
+        <path d="M36,48 L36,34 Q36,24 46,24 Q56,24 56,34 L56,48 Z" fill="#f5a623"/>
+        <polygon points="38,24 36,14 44,22" fill="#f5a623"/>
+        <polygon points="54,24 56,14 48,22" fill="#f5a623"/>
+        <circle cx="43" cy="33" r="1.2" fill="white" opacity="0.8"/>
+        <circle cx="49" cy="33" r="1.2" fill="white" opacity="0.8"/>
+      </svg>
+      <svg width="32" height="32" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <rect width="64" height="64" rx="14" fill="#1a1a2e"/>
+        <circle cx="50" cy="12" r="7" fill="#f5a623" opacity="0.9"/>
+        <circle cx="54" cy="10" r="5.5" fill="#1a1a2e"/>
+        <path d="M8,48 L8,34 Q8,24 18,24 Q28,24 28,34 L28,48 Z" fill="#4267B2"/>
+        <polygon points="10,24 8,14 16,22" fill="#4267B2"/>
+        <polygon points="26,24 28,14 20,22" fill="#4267B2"/>
+        <circle cx="15" cy="33" r="1.2" fill="white" opacity="0.8"/>
+        <circle cx="21" cy="33" r="1.2" fill="white" opacity="0.8"/>
+        <path d="M36,48 L36,34 Q36,24 46,24 Q56,24 56,34 L56,48 Z" fill="#f5a623"/>
+        <polygon points="38,24 36,14 44,22" fill="#f5a623"/>
+        <polygon points="54,24 56,14 48,22" fill="#f5a623"/>
+        <circle cx="43" cy="33" r="1.2" fill="white" opacity="0.8"/>
+        <circle cx="49" cy="33" r="1.2" fill="white" opacity="0.8"/>
+      </svg>
+      <svg width="16" height="16" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <rect width="64" height="64" rx="14" fill="#1a1a2e"/>
+        <path d="M8,48 L8,34 Q8,24 18,24 Q28,24 28,34 L28,48 Z" fill="#4267B2"/>
+        <polygon points="10,24 8,14 16,22" fill="#4267B2"/>
+        <polygon points="26,24 28,14 20,22" fill="#4267B2"/>
+        <path d="M36,48 L36,34 Q36,24 46,24 Q56,24 56,34 L56,48 Z" fill="#f5a623"/>
+        <polygon points="38,24 36,14 44,22" fill="#f5a623"/>
+        <polygon points="54,24 56,14 48,22" fill="#f5a623"/>
+      </svg>
+    </div>
+    <div class="label">64px · 32px · 16px</div>
+  </div>
+
+</div>
+
+<p style="color:#888; font-size:13px;">เปิดไฟล์นี้ที่ browser แล้วบอกว่าชอบ Style ไหน จะนำไปใส่ใน app ได้เลย</p>
+
+</body>
+</html>
