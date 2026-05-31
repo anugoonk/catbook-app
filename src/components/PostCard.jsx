@@ -95,7 +95,6 @@ const PostCard = ({ post, onDeleted }) => {
   const [commentText, setCommentText] = useState('');
   const [showComments, setShowComments] = useState(false);
   const [commentCount, setCommentCount] = useState(post.commentCount ?? post.comments ?? 0);
-  const [meowMode, setMeowMode] = useState(false);
   const [shareCount, setShareCount] = useState(post.shareCount ?? post.shares ?? 0);
   const [toastMsg, setToastMsg] = useState('');
   const [showShareMenu, setShowShareMenu] = useState(false);
@@ -217,15 +216,15 @@ const PostCard = ({ post, onDeleted }) => {
   const submitComment = async () => {
     const raw = commentText.trim();
     if (!raw) return;
-    const text = meowMode ? translateToMeow(raw) : raw;
-    const optimistic = { id: `tmp-${Date.now()}`, name: currentUser.activeCat.name, avatar: currentUser.activeCat.avatar, text, time: 'เมื่อกี้นี้', meow: meowMode, isOwn: true };
+    const text = translateToMeow(raw);
+    const optimistic = { id: `tmp-${Date.now()}`, name: currentUser.activeCat.name, avatar: currentUser.activeCat.avatar, text, time: 'เมื่อกี้นี้', meow: true, isOwn: true };
     setComments(prev => [...prev, optimistic]);
     setCommentCount(c => c + 1);
     setCommentsLoaded(true);
     setCommentText('');
     setMentionQuery(null);
     try {
-      const data = await socialApi.addComment(post.id, { text, meow: meowMode });
+      const data = await socialApi.addComment(post.id, { text, meow: true });
       setComments(prev => prev.map(c => c.id === optimistic.id ? data.comment : c));
     } catch {
       setComments(prev => prev.filter(c => c.id !== optimistic.id));
@@ -444,13 +443,6 @@ const PostCard = ({ post, onDeleted }) => {
                 ))}
               </div>
             )}
-            {meowMode && (
-              <div className="flex items-center gap-1.5 px-1 py-1 bg-purple-50 rounded-xl border border-purple-200">
-                <span className="text-base leading-none">🐾</span>
-                <span className="text-[12px] text-purple-600 font-semibold flex-1">Meow Mode เปิดอยู่ — ข้อความจะถูกแปลเป็นภาษาแมวก่อนส่ง</span>
-                <button onClick={() => setMeowMode(false)} className="text-purple-400 hover:text-purple-600 text-xs font-bold px-1">✕</button>
-              </div>
-            )}
             {/* Mention dropdown */}
             {mentionQuery !== null && mentionFiltered.length > 0 && (
               <div className="border border-[#dddfe2] rounded-xl overflow-hidden divide-y divide-[#f0f2f5] bg-white shadow-sm">
@@ -483,20 +475,9 @@ const PostCard = ({ post, onDeleted }) => {
                   onSelect={handleInputSelect}
                   onClick={handleInputSelect}
                   onKeyDown={handleKeyDown}
-                  placeholder={meowMode ? 'พิมพ์แล้วแมวจะแปลให้~ 🐾' : 'เขียนคอมเมนต์... (Enter เพื่อส่ง)'}
-                  className={`w-full rounded-full py-2 pl-10 pr-[4.5rem] text-[15px] outline-none transition-all
-                    ${meowMode
-                      ? 'bg-purple-50 ring-2 ring-purple-300 placeholder:text-purple-400'
-                      : 'bg-[#f0f2f5] hover:bg-[#e4e6eb] focus:ring-2 focus:ring-[#4267B2]/20'}`}
+                  placeholder="เมี๊ยวๆ... พิมพ์แล้วแมวจะแปลให้เอง 🐾"
+                  className="w-full rounded-full py-2 pl-10 pr-9 text-[15px] outline-none transition-all bg-purple-50 hover:bg-purple-100/70 focus:ring-2 focus:ring-purple-300 placeholder:text-purple-400"
                 />
-                <button
-                  onClick={() => setMeowMode(m => !m)}
-                  title={meowMode ? 'ปิด Meow Mode' : 'เปิด Meow Mode'}
-                  className={`absolute right-9 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors text-base leading-none
-                    ${meowMode ? 'text-purple-500 bg-purple-100' : 'text-gray-300 hover:text-purple-400 hover:bg-purple-50'}`}
-                >
-                  🐾
-                </button>
                 <button
                   onClick={submitComment}
                   disabled={!commentText.trim()}

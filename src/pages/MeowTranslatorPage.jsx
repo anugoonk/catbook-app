@@ -3,15 +3,20 @@ import { Copy, RefreshCw } from 'lucide-react';
 import PawIcon from '../components/PawIcon';
 import Toast from '../components/Toast';
 import useToast from '../hooks/useToast';
-import { translateToMeow } from '../utils/meowTranslator';
+import { translateToMeow, getMoodLabel } from '../utils/meowTranslator';
 
 /* ── Example phrases ── */
 const EXAMPLES = [
   'สวัสดีครับ วันนี้อากาศดีมาก',
   'หิวข้าวมากเลย ทาสยังไม่กลับบ้าน',
   'ฉันรักคุณมากที่สุดเลยนะ',
-  'อยากนอนทั้งวันจริงๆ',
+  'อยากนอนทั้งวันจริงๆ เหนื่อยมาก',
   'วันนี้เล่นกล่องแล้วสนุกมาก',
+  'ทำไมทาสยังไม่ซื้อปลาให้เลย',
+  'ฉันเกลียดการอาบน้ำมากที่สุด',
+  'มีหนูวิ่งอยู่ในบ้าน ตื่นเต้นมาก',
+  'ขอบคุณที่เอาขนมมาให้นะ น่ารักจัง',
+  'I love fish so much meow',
 ];
 
 const CAT_FACE = { idle: '😸', thinking: '🤔', happy: '😻', copy: '😺' };
@@ -21,6 +26,7 @@ const MeowTranslatorPage = () => {
   const [output, setOutput] = useState('');
   const [mood, setMood] = useState('idle');
   const [busy, setBusy] = useState(false);
+  const [moodLabel, setMoodLabel] = useState('');
   const [toast, showToast] = useToast();
 
   const translate = () => {
@@ -29,6 +35,7 @@ const MeowTranslatorPage = () => {
     setMood('thinking');
     setTimeout(() => {
       setOutput(translateToMeow(input));
+      setMoodLabel(getMoodLabel(input));
       setMood('happy');
       setBusy(false);
     }, 550);
@@ -47,7 +54,7 @@ const MeowTranslatorPage = () => {
   };
 
   const handleClear = () => {
-    setInput(''); setOutput(''); setMood('idle');
+    setInput(''); setOutput(''); setMood('idle'); setMoodLabel('');
   };
 
   const applyExample = (ex) => {
@@ -57,6 +64,7 @@ const MeowTranslatorPage = () => {
   const handleRetranslate = () => {
     if (!input.trim()) return;
     setOutput(translateToMeow(input));
+    setMoodLabel(getMoodLabel(input));
     setMood('happy');
   };
 
@@ -136,6 +144,11 @@ const MeowTranslatorPage = () => {
             <div className="flex items-center gap-2">
               <span className="text-xl">😺</span>
               <span className="text-sm font-semibold text-gray-700">ภาษาแมว</span>
+              {moodLabel && (
+                <span className="text-xs bg-blue-50 text-[#4267B2] border border-blue-100 px-2 py-0.5 rounded-full font-medium">
+                  {moodLabel}
+                </span>
+              )}
             </div>
             <div className="flex gap-2">
               <button
