@@ -7,6 +7,8 @@ import Toast from '../components/Toast';
 import useToast from '../hooks/useToast';
 import { mockPosts, mockUsers, mockCats } from '../data/mockData';
 import { useUser } from '../context/UserContext';
+import { uploadFile } from '../services/apiClient';
+import { authApi, profileApi } from '../services/commerceApi';
 
 const TABS = ['โพสต์', 'เกี่ยวกับ', 'เพื่อนเหมียว', 'รูปภาพ'];
 
@@ -40,6 +42,20 @@ const ProfilePage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', breed: '', bio: '' });
   const [friendIds, setFriendIds] = useState([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      await authApi.deleteAccount();
+      window.location.href = '/login';
+    } catch {
+      showToast('ลบบัญชีไม่สำเร็จ กรุณาลองใหม่');
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
 
   const profilePosts = isOwnProfile ? [...ownPosts, ...basePosts] : basePosts;
   const handleAddPost = (newPost) => setOwnPosts(prev => [newPost, ...prev]);
@@ -80,14 +96,34 @@ const ProfilePage = () => {
   const displayCover = isOwnProfile ? coverImg : (profileCat.cover || profileCat.avatar);
   const displayAvatar = isOwnProfile ? avatarImg : profileCat.avatar;
 
-  const handleFileChange = (e, setter) => {
+  const handleFileChange = async (e, type) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    setter(prev => {
-      if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
-      return URL.createObjectURL(file);
-    });
-    showToast('Preview updated. Image upload is not persisted yet.');
+    if (!file || !file.type.startsWith('image/')) return;
+    e.target.value = '';
+
+    // Immediate blob preview
+    const blobUrl = URL.createObjectURL(file);
+    if (type === 'avatar') setAvatarImg(blobUrl);
+    else setCoverImg(blobUrl);
+    showToast('กำลังอัปโหลดรูปภาพ...');
+
+    try {
+      const { url } = await uploadFile(file);
+      URL.revokeObjectURL(blobUrl);
+
+      const cat = currentUser.activeCat;
+      const updatedFields = type === 'avatar' ? { avatar: url } : { cover: url };
+      await profileApi.update({ name: cat.name, breed: cat.breed, bio: cat.bio, avatar: cat.avatar, cover: cat.cover, ...updatedFields });
+      updateProfile(updatedFields);
+      if (type === 'avatar') setAvatarImg(url);
+      else setCoverImg(url);
+      showToast('อัปเดตรูปภาพสำเร็จ! 🐾');
+    } catch {
+      URL.revokeObjectURL(blobUrl);
+      if (type === 'avatar') setAvatarImg(currentUser.activeCat.avatar);
+      else setCoverImg(currentUser.activeCat.cover);
+      showToast('อัปโหลดไม่สำเร็จ กรุณาลองใหม่');
+    }
   };
 
   const addFriend = () => {
@@ -125,7 +161,7 @@ const ProfilePage = () => {
                 <ImageIcon className="w-4 h-4" /> เปลี่ยนรูปหน้าปก
               </button>
               <input ref={coverRef} type="file" accept="image/*" className="hidden"
-                onChange={e => handleFileChange(e, setCoverImg)} />
+                onChange={e => handleFileChange(e, 'cover')} />
             </>
           )}
         </div>
@@ -148,7 +184,7 @@ const ProfilePage = () => {
                     <ImageIcon className="w-4 h-4 text-gray-800" />
                   </button>
                   <input ref={avatarRef} type="file" accept="image/*" className="hidden"
-                    onChange={e => handleFileChange(e, setAvatarImg)} />
+                    onChange={e => handleFileChange(e, 'avatar')} />
                 </>
               )}
             </div>
@@ -257,6 +293,41 @@ const ProfilePage = () => {
               สถานะ: <span className="font-medium text-gray-800">{profileCat.status || '—'}</span>
             </li>
           </ul>
+
+          {isOwnProfile && (
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <h3 className="font-bold text-[15px] text-red-600 mb-1">โซนอันตราย</h3>
+              <p className="text-xs text-gray-400 mb-3">การลบบัญชีจะลบโพสต์ ความคิดเห็น และข้อมูลทั้งหมดอย่างถาวร ไม่สามารถกู้คืนได้</p>
+              {!showDeleteConfirm ? (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="text-sm font-semibold text-red-500 border border-red-200 px-4 py-2 rounded-lg hover:bg-red-50 transition-colors"
+                >
+                  ลบบัญชีของฉัน
+                </button>
+              ) : (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                  <p className="font-bold text-red-700 text-sm mb-1">ยืนยันการลบบัญชี?</p>
+                  <p className="text-xs text-red-500 mb-3">ข้อมูลทั้งหมดจะถูกลบอย่างถาวร ไม่มีทางกู้คืน</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleDeleteAccount}
+                      disabled={isDeleting}
+                      className="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 disabled:bg-red-300 rounded-lg transition-colors"
+                    >
+                      {isDeleting ? 'กำลังลบ...' : 'ยืนยัน ลบบัญชี'}
+                    </button>
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="px-4 py-2 text-sm font-semibold text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+                    >
+                      ยกเลิก
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

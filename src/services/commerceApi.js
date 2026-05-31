@@ -1,9 +1,15 @@
 import { api } from './apiClient';
 
+export const profileApi = {
+  update: (data) => api.patch('/auth/profile', data),
+};
+
 export const authApi = {
   login: (credentials) => api.post('/auth/login', credentials),
   logout: () => api.post('/auth/logout'),
   me: () => api.get('/auth/me'),
+  register: (data) => api.post('/auth/register', data),
+  deleteAccount: () => api.delete('/auth/account'),
 };
 
 export const productApi = {
@@ -31,6 +37,14 @@ export const orderApi = {
   detail: (orderNo) => api.get(`/orders/${encodeURIComponent(orderNo)}`),
 };
 
+export const sellerApi = {
+  products: () => api.get('/seller/products'),
+  createProduct: (payload) => api.post('/seller/products', payload),
+  updateProduct: (productId, payload) => api.patch(`/seller/products/${productId}`, payload),
+  archiveProduct: (productId) => api.delete(`/seller/products/${productId}`),
+  adjustStock: (productId, payload) => api.patch(`/seller/products/${productId}/stock`, payload),
+};
+
 export const adminApi = {
   products: (params = {}) => {
     const query = new URLSearchParams(params).toString();
@@ -52,4 +66,9 @@ export const adminApi = {
   refundPayment: (orderId, payload = {}) => api.post(`/admin/orders/${orderId}/payments/refund`, payload),
   users: () => api.get('/admin/users'),
   updateUserRole: (userId, role) => api.patch(`/admin/users/${userId}`, { role }),
+  setUserStatus: (userId, status) => api.patch(`/admin/users/${userId}/status`, { status }),
+  deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
+  posts: () => api.get('/admin/posts'),
+  deletePost: (postId) => api.delete(`/admin/posts/${postId}`),
+  setPostVisibility: (postId, hidden) => api.patch(`/admin/posts/${postId}/visibility`, { hidden }),
 };

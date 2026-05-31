@@ -7,6 +7,10 @@ import { OrderProvider } from './context/OrderContext';
 import MainLayout from './components/MainLayout';
 import ChatWindow from './components/ChatWindow';
 import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import CookieConsent from './components/CookieConsent';
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+const TermsPage   = lazy(() => import('./pages/TermsPage'));
 import { authApi } from './services/commerceApi';
 import { captureUtmContext, trackMarketingEvent } from './services/marketingTracking';
 import { defaultSeoMeta, setSeoMeta } from './utils/seo';
@@ -25,6 +29,7 @@ const MeowTranslatorPage = lazy(() => import('./pages/MeowTranslatorPage'));
 const OrdersPage = lazy(() => import('./pages/OrdersPage'));
 const OrderDetailPage = lazy(() => import('./pages/OrderDetailPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
+const SellerDashboardPage = lazy(() => import('./pages/SellerDashboardPage'));
 
 const RouteFallback = () => (
   <div className="w-full min-h-[240px] flex items-center justify-center">
@@ -117,6 +122,12 @@ export default function App() {
               element={isLoggedIn ? <Navigate to="/" replace /> : <LoginPage onLogin={handleLogin} />}
             />
             <Route
+              path="/register"
+              element={isLoggedIn ? <Navigate to="/" replace /> : <RegisterPage onLogin={handleLogin} />}
+            />
+            <Route path="/privacy" element={lazyElement(PrivacyPage)} />
+            <Route path="/terms"   element={lazyElement(TermsPage)} />
+            <Route
               element={
                 isLoggedIn
                   ? <MainLayout onLogout={handleLogout} onOpenChat={setActiveChat} />
@@ -137,9 +148,11 @@ export default function App() {
               <Route path="/orders"          element={lazyElement(OrdersPage)} />
               <Route path="/orders/:orderId" element={lazyElement(OrderDetailPage)} />
               <Route path="/admin"         element={currentUser?.isAdmin ? lazyElement(AdminDashboardPage) : <Navigate to="/" replace />} />
+              <Route path="/seller"        element={(currentUser?.role === 'SELLER' || currentUser?.isAdmin) ? lazyElement(SellerDashboardPage) : <Navigate to="/" replace />} />
               <Route path="*"              element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
+          <CookieConsent />
         </BrowserRouter>
 
         {isLoggedIn && activeChat && (

@@ -34,6 +34,7 @@ const CheckoutModal = ({ onClose }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderId, setOrderId] = useState('');
   const [savedTotal, setSavedTotal] = useState(total);
+  const [paymentInstruction, setPaymentInstruction] = useState(null);
 
   const set = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }));
 
@@ -67,6 +68,7 @@ const CheckoutModal = ({ onClose }) => {
         });
         setSavedTotal(result.order.total);
         setOrderId(result.order.id);
+        setPaymentInstruction(result.order.paymentInstruction || null);
         trackMarketingEvent('purchase', {
           transaction_id: result.order.id,
           value: result.order.total,
@@ -209,28 +211,71 @@ const CheckoutModal = ({ onClose }) => {
 
           {/* Step 3: Done */}
           {step === 3 && (
-            <div className="text-center py-6 space-y-4">
-              <div className="text-7xl animate-bounce">😻</div>
+            <div className="text-center py-4 space-y-4">
+              <div className="text-6xl animate-bounce">😻</div>
               <div>
                 <h3 className="font-black text-xl text-gray-900">สั่งซื้อสำเร็จ!</h3>
-                <p className="text-gray-500 text-sm mt-1">ขอบคุณที่ช้อปให้น้องแมว ทาสดีมากๆ 🐾</p>
+                <p className="text-gray-500 text-sm mt-0.5">ขอบคุณที่ช้อปให้น้องแมว 🐾</p>
               </div>
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 text-left space-y-2.5 border border-blue-100">
+
+              {/* PromptPay QR */}
+              {paymentInstruction?.type === 'promptpay' && (
+                <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
+                  <p className="text-sm font-black text-blue-700 mb-2">📱 สแกน PromptPay เพื่อชำระเงิน</p>
+                  <img
+                    src={paymentInstruction.qrDataUrl}
+                    alt="PromptPay QR Code"
+                    className="w-48 h-48 mx-auto rounded-xl border-4 border-white shadow"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    ยอดชำระ <span className="font-black text-gray-800">{savedTotal.toLocaleString()} ฿</span>
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    เบอร์ PromptPay: {paymentInstruction.promptpayNumber}
+                  </p>
+                  <p className="text-[11px] text-amber-600 mt-1 font-medium">
+                    QR หมดอายุใน 15 นาที · Ref: {paymentInstruction.referenceNo}
+                  </p>
+                </div>
+              )}
+
+              {/* Bank Transfer */}
+              {paymentInstruction?.type === 'bank_transfer' && (
+                <div className="bg-green-50 rounded-2xl p-4 border border-green-100 text-left space-y-1.5">
+                  <p className="text-sm font-black text-green-700 mb-2">🏦 ข้อมูลสำหรับโอนเงิน</p>
+                  {[
+                    ['ธนาคาร', paymentInstruction.bankName],
+                    ['เลขบัญชี', paymentInstruction.accountNo],
+                    ['ชื่อบัญชี', paymentInstruction.accountName],
+                    ['ยอดโอน', `${savedTotal.toLocaleString()} ฿`],
+                    ['Ref', paymentInstruction.referenceNo],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex justify-between text-sm">
+                      <span className="text-gray-500">{label}</span>
+                      <span className="font-semibold text-gray-800 text-right">{value}</span>
+                    </div>
+                  ))}
+                  <p className="text-[11px] text-amber-600 mt-1 font-medium">
+                    กรุณาใส่ Ref ในช่องหมายเหตุการโอน
+                  </p>
+                </div>
+              )}
+
+              {/* COD / Card */}
+              {(!paymentInstruction || paymentInstruction.type === 'cod' || paymentInstruction.type === 'card') && (
+                <div className="bg-gray-50 rounded-2xl p-3 text-sm text-gray-600 border border-gray-100">
+                  ชำระด้วย <span className="font-semibold">{payLabel}</span>
+                </div>
+              )}
+
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 text-left space-y-2 border border-blue-100">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">หมายเลขออเดอร์</span>
-                  <span className="font-black text-[#4267B2]">{orderId}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">ยอดรวม</span>
-                  <span className="font-black text-gray-800">{savedTotal.toLocaleString()} ฿</span>
+                  <span className="font-black text-[#4267B2] text-xs">{orderId}</span>
                 </div>
                 <div className="flex justify-between text-sm gap-4">
                   <span className="text-gray-500 shrink-0">ที่อยู่จัดส่ง</span>
-                  <span className="font-medium text-gray-700 text-right">{form.address}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">ชำระด้วย</span>
-                  <span className="font-semibold text-gray-700">{payLabel}</span>
+                  <span className="font-medium text-gray-700 text-right text-xs">{form.address}</span>
                 </div>
               </div>
               <p className="text-xs text-gray-400">🚚 คาดว่าจะได้รับสินค้าภายใน 3–5 วันทำการ</p>

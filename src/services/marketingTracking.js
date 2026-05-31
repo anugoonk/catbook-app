@@ -1,5 +1,10 @@
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
 const STORAGE_KEY = 'catbook_utm_context';
+const CONSENT_KEY = 'catbook_consent';
+
+const hasMarketingConsent = () => {
+  try { return window.localStorage.getItem(CONSENT_KEY) === 'accepted'; } catch { return false; }
+};
 
 const readStoredContext = () => {
   try {
@@ -45,6 +50,7 @@ export const getMarketingContext = () => {
 
 export const trackMarketingEvent = (eventName, payload = {}) => {
   if (typeof window === 'undefined') return;
+  if (!hasMarketingConsent()) return;
 
   const event = {
     event: eventName,

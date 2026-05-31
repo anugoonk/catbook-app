@@ -4,7 +4,7 @@ import {
   BarChart2, Users, FileText, Store, Shield, ArrowLeft,
   Crown, Search, AlertTriangle, Package,
 } from 'lucide-react';
-import { mockUsers, mockPosts, mockLostCats } from '../data/mockData';
+import { mockUsers, mockLostCats } from '../data/mockData';
 import { useUser } from '../context/UserContext';
 import { adminApi } from '../services/commerceApi';
 import Toast from '../components/Toast';
@@ -257,8 +257,7 @@ const AdminDashboardPage = () => {
   const [userSearch, setUserSearch] = useState('');
 
   /* posts */
-  const [posts, setPosts]           = useState(mockPosts);
-  const [hiddenPosts, setHiddenPosts] = useState({});
+  const [posts, setPosts]     = useState([]);
   const [postSearch, setPostSearch] = useState('');
 
   /* marketplace */
@@ -320,23 +319,40 @@ const AdminDashboardPage = () => {
     }
   }, [showToast]);
 
+  const loadPosts = useCallback(async () => {
+    try {
+      const response = await adminApi.posts();
+      setPosts(response.posts || []);
+    } catch {
+      showToast('โหลดโพสต์ไม่สำเร็จ');
+    }
+  }, [showToast]);
+
   useEffect(() => {
     if (currentUser?.isAdmin) {
       loadMarket();
       loadOrders();
       loadUsers();
+      loadPosts();
     }
-  }, [currentUser, loadMarket, loadOrders, loadUsers]);
+  }, [currentUser, loadMarket, loadOrders, loadUsers, loadPosts]);
 
   useEffect(() => {
     setTrackingDrafts(prev => Object.fromEntries(orders.map(order => [order.id, prev[order.id] ?? order.trackingNo ?? ''])));
   }, [orders]);
 
   /* ── action handlers ── */
-  const toggleBan = (userId) => {
-    const next = !banned[userId];
-    setBanned(p => ({ ...p, [userId]: next }));
-    showToast(next ? 'ระงับสมาชิกแล้ว' : 'ปลดระงับสมาชิกแล้ว');
+  const toggleBan = async (userId) => {
+    const target = users.find(u => u.id === userId);
+    if (!target) return;
+    const next = target.status === 'banned' ? 'active' : 'banned';
+    try {
+      await adminApi.setUserStatus(userId, next);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: next } : u));
+      showToast(next === 'banned' ? 'ระงับสมาชิกแล้ว' : 'ปลดระงับสมาชิกแล้ว');
+    } catch {
+      showToast('ดำเนินการไม่สำเร็จ');
+    }
   };
   const ROLE_CYCLE = { USER: 'SELLER', SELLER: 'ADMIN', ADMIN: 'USER' };
   const ROLE_LABEL_TH = { USER: 'สมาชิก', SELLER: 'ผู้ขาย', ADMIN: 'Admin' };
@@ -353,20 +369,37 @@ const AdminDashboardPage = () => {
       showToast('เปลี่ยนสิทธิ์ไม่สำเร็จ');
     }
   };
-  const deleteUser = (id) => {
-    setUsers(p => p.filter(u => u.id !== id));
-    setConfirmDelete(null);
-    showToast('ลบสมาชิกเรียบร้อยแล้ว');
+  const deleteUser = async (id) => {
+    try {
+      await adminApi.deleteUser(id);
+      setUsers(prev => prev.filter(u => u.id !== id));
+      setConfirmDelete(null);
+      showToast('ลบสมาชิกเรียบร้อยแล้ว');
+    } catch {
+      showToast('ลบสมาชิกไม่สำเร็จ');
+    }
   };
-  const toggleHidePost = (id) => {
-    const next = !hiddenPosts[id];
-    setHiddenPosts(p => ({ ...p, [id]: next }));
-    showToast(next ? 'ซ่อนโพสต์แล้ว' : 'แสดงโพสต์แล้ว');
+  const toggleHidePost = async (id) => {
+    const post = posts.find(p => p.id === id);
+    if (!post) return;
+    const next = !post.hidden;
+    try {
+      await adminApi.setPostVisibility(id, next);
+      setPosts(prev => prev.map(p => p.id === id ? { ...p, hidden: next } : p));
+      showToast(next ? 'ซ่อนโพสต์แล้ว' : 'แสดงโพสต์แล้ว');
+    } catch {
+      showToast('ดำเนินการไม่สำเร็จ');
+    }
   };
-  const deletePost = (id) => {
-    setPosts(p => p.filter(x => x.id !== id));
-    setConfirmDelete(null);
-    showToast('ลบโพสต์เรียบร้อยแล้ว');
+  const deletePost = async (id) => {
+    try {
+      await adminApi.deletePost(id);
+      setPosts(prev => prev.filter(p => p.id !== id));
+      setConfirmDelete(null);
+      showToast('ลบโพสต์เรียบร้อยแล้ว');
+    } catch {
+      showToast('ลบโพสต์ไม่สำเร็จ');
+    }
   };
   const deleteMarket = (id) => {
     adminApi.archiveProduct(id)
@@ -505,9 +538,10 @@ const AdminDashboardPage = () => {
     u.ownerName.includes(userSearch) ||
     u.email.includes(userSearch)
   );
-  const filteredPosts  = posts.filter(p =>
-    p.content.includes(postSearch) || p.cat.name.includes(postSearch)
-  );
+  const filteredPosts  = posts.filter(p => {
+    const q = postSearch.toLowerCase();
+    return !q || (p.content || '').toLowerCase().includes(q) || (p.cat?.name || '').toLowerCase().includes(q);
+  });
   const marketCats = useMemo(() => [
     { value: ALL_FILTER, label: 'All categories' },
     ...[...new Set(market.map(m => m.category).filter(Boolean))]
@@ -555,8 +589,8 @@ const AdminDashboardPage = () => {
   }, [orderPayment, orderSearch, orderShipping, orderStatus, orders]);
   const totalRevenue   = market.reduce((s, m) => s + (m.price * (m.stock || 0)), 0);
 
-  const chartData = mockPosts.map(p => ({ name: p.cat.name, avatar: p.cat.avatar, likes: p.likes }));
-  const maxLikes  = Math.max(...chartData.map(d => d.likes));
+  const chartData = posts.map(p => ({ name: p.cat?.name || '—', avatar: p.cat?.avatar || '', likes: p.likeCount || 0 }));
+  const maxLikes  = Math.max(1, ...chartData.map(d => d.likes));
 
   /* ── render ── */
   return (
@@ -716,7 +750,7 @@ const AdminDashboardPage = () => {
                 <tbody className="divide-y divide-gray-100">
                   {filteredUsers.map(user => {
                     const cat      = user.activeCat;
-                    const isBanned = banned[user.id];
+                    const isBanned = user.status === 'banned';
                     const role     = user.role || 'USER';
                     const isAdmin  = role === 'ADMIN';
                     const isSeller = role === 'SELLER';
@@ -823,7 +857,7 @@ const AdminDashboardPage = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredPosts.map(post => {
-                    const isHidden = hiddenPosts[post.id];
+                    const isHidden = Boolean(post.hidden);
                     return (
                       <tr key={post.id} className={`transition-colors ${isHidden ? 'opacity-40 bg-gray-50' : 'hover:bg-gray-50'}`}>
                         <td className="px-4 py-3">
@@ -843,8 +877,8 @@ const AdminDashboardPage = () => {
                           {post.feeling && <p className="text-[11px] text-gray-400">รู้สึก: {post.feeling}</p>}
                         </td>
                         <td className="px-4 py-3 text-gray-400 whitespace-nowrap text-[12px]">{post.time}</td>
-                        <td className="px-4 py-3 text-center text-gray-500 text-[13px]">{post.likes}</td>
-                        <td className="px-4 py-3 text-center text-gray-500 text-[13px]">{post.comments}</td>
+                        <td className="px-4 py-3 text-center text-gray-500 text-[13px]">{post.likeCount ?? 0}</td>
+                        <td className="px-4 py-3 text-center text-gray-500 text-[13px]">{post.commentCount ?? 0}</td>
                         <td className="px-4 py-3">
                           <div className="flex gap-1.5 flex-wrap">
                             <button

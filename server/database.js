@@ -1,5 +1,6 @@
 import { copyFile, mkdir, readdir, stat, unlink } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import Database from 'better-sqlite3';
 import { mockUsers } from '../src/data/mockData.js';
@@ -8,7 +9,10 @@ import { buildProductCatalog } from './productCatalog.js';
 const DB_FILE = join(process.cwd(), 'server', 'data', 'catbook-db.sqlite');
 const MIGRATION_FILE = join(process.cwd(), 'migrations', '001_ecommerce_core.sql');
 const MIGRATION_002_FILE = join(process.cwd(), 'migrations', '002_role_system.sql');
-const SCHEMA_VERSION = 2;
+const MIGRATION_003_FILE = join(process.cwd(), 'migrations', '003_social.sql');
+const MIGRATION_004_FILE = join(process.cwd(), 'migrations', '004_auth_hardening.sql');
+const MIGRATION_005_FILE = join(process.cwd(), 'migrations', '005_moderation.sql');
+const SCHEMA_VERSION = 5;
 
 // Initialize Database connection
 await mkdir(dirname(DB_FILE), { recursive: true });
@@ -47,6 +51,27 @@ const roleColExists = db.prepare("SELECT name FROM pragma_table_info('users') WH
 if (!roleColExists) {
   const migration002 = readFileSync(MIGRATION_002_FILE, 'utf8');
   db.exec(migration002);
+}
+
+// Migration 003: social tables (posts, reactions, comments, follows)
+const postsTableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'").get();
+if (!postsTableExists) {
+  const migration003 = readFileSync(MIGRATION_003_FILE, 'utf8');
+  db.exec(migration003);
+}
+
+// Migration 004: per-user password hash + persistent sessions
+const pwHashColExists = db.prepare("SELECT name FROM pragma_table_info('users') WHERE name='password_hash'").get();
+if (!pwHashColExists) {
+  const migration004 = readFileSync(MIGRATION_004_FILE, 'utf8');
+  db.exec(migration004);
+}
+
+// Migration 005: moderation (user status, post hidden)
+const userStatusColExists = db.prepare("SELECT name FROM pragma_table_info('users') WHERE name='status'").get();
+if (!userStatusColExists) {
+  const migration005 = readFileSync(MIGRATION_005_FILE, 'utf8');
+  db.exec(migration005);
 }
 
 // Initialize db_meta table for tracking database metadata
@@ -105,6 +130,7 @@ export const readDatabase = async (bypassCache = false) => {
       ownerName: row.owner_name,
       role: row.role || 'USER',
       isAdmin: row.role === 'ADMIN' || Boolean(row.is_admin),
+      status: row.status || 'active',
       activeCat: JSON.parse(row.active_cat_json),
       createdAt: row.created_at,
       updatedAt: row.updated_at
@@ -280,30 +306,53 @@ export const readDatabase = async (bypassCache = false) => {
 
 export const writeDatabase = async (database) => {
   const transaction = db.transaction(() => {
-    // 1. Sync users
+    // 1. Sync users — use upsert (not REPLACE) to preserve password_hash/salt and avoid FK violations
     for (const u of database.users) {
       const role = u.role || (u.isAdmin ? 'ADMIN' : 'USER');
       db.prepare(`
-        INSERT OR REPLACE INTO users (id, email, owner_name, is_admin, role, active_cat_json, updated_at, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM users WHERE id = ?), ?))
+        INSERT INTO users (id, email, owner_name, is_admin, role, status, active_cat_json, updated_at, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          email           = excluded.email,
+          owner_name      = excluded.owner_name,
+          is_admin        = excluded.is_admin,
+          role            = excluded.role,
+          status          = excluded.status,
+          active_cat_json = excluded.active_cat_json,
+          updated_at      = excluded.updated_at
       `).run(
         u.id,
         u.email,
         u.ownerName,
         role === 'ADMIN' ? 1 : 0,
         role,
+        u.status || 'active',
         JSON.stringify(u.activeCat),
         u.updatedAt || new Date().toISOString(),
-        u.id,
         u.createdAt || new Date().toISOString()
       );
     }
 
-    // 2. Sync products
+    // 2. Sync products — upsert to avoid FK violations from order_items/stock_movements
     for (const p of database.products) {
       db.prepare(`
-        INSERT OR REPLACE INTO products (id, sku, slug, title, description, category, brand, species, life_stage, price, stock, image_url, seller_json, status, updated_at, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM products WHERE id = ?), ?))
+        INSERT INTO products (id, sku, slug, title, description, category, brand, species, life_stage, price, stock, image_url, seller_json, status, updated_at, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          sku         = excluded.sku,
+          slug        = excluded.slug,
+          title       = excluded.title,
+          description = excluded.description,
+          category    = excluded.category,
+          brand       = excluded.brand,
+          species     = excluded.species,
+          life_stage  = excluded.life_stage,
+          price       = excluded.price,
+          stock       = excluded.stock,
+          image_url   = excluded.image_url,
+          seller_json = excluded.seller_json,
+          status      = excluded.status,
+          updated_at  = excluded.updated_at
       `).run(
         p.id,
         p.sku,
@@ -320,14 +369,21 @@ export const writeDatabase = async (database) => {
         JSON.stringify(p.seller),
         p.status || 'active',
         p.updatedAt || new Date().toISOString(),
-        p.id,
         p.createdAt || new Date().toISOString()
       );
     }
 
-    // 3. Sync carts and cart_items
+    // 3–8. Delete in FK-safe order (leaf → parent)
+    db.prepare("DELETE FROM audit_logs").run();
+    db.prepare("DELETE FROM stock_movements").run();
     db.prepare("DELETE FROM cart_items").run();
     db.prepare("DELETE FROM carts").run();
+    db.prepare("DELETE FROM order_items").run();
+    db.prepare("DELETE FROM payments").run();
+    db.prepare("DELETE FROM shipments").run();
+    db.prepare("DELETE FROM orders").run();
+
+    // 3. Sync carts and cart_items
 
     for (const [userId, items] of Object.entries(database.carts)) {
       if (!items || items.length === 0) continue;
@@ -350,8 +406,6 @@ export const writeDatabase = async (database) => {
     }
 
     // 4. Sync orders and order_items
-    db.prepare("DELETE FROM order_items").run();
-    db.prepare("DELETE FROM orders").run();
 
     for (const userOrders of Object.values(database.orders)) {
       for (const o of userOrders) {
@@ -394,7 +448,6 @@ export const writeDatabase = async (database) => {
     }
 
     // 5. Sync payments
-    db.prepare("DELETE FROM payments").run();
     for (const p of database.payments) {
       db.prepare(`
         INSERT INTO payments (id, order_id, method, status, amount, gateway_ref, paid_at, instruction_json, failed_at, refunded_at, updated_at, created_at)
@@ -416,7 +469,6 @@ export const writeDatabase = async (database) => {
     }
 
     // 6. Sync shipments
-    db.prepare("DELETE FROM shipments").run();
     for (const s of database.shipments) {
       db.prepare(`
         INSERT INTO shipments (id, order_id, carrier, tracking_no, status, shipped_at, delivered_at, created_at)
@@ -434,7 +486,6 @@ export const writeDatabase = async (database) => {
     }
 
     // 7. Sync stockMovements
-    db.prepare("DELETE FROM stock_movements").run();
     for (const m of database.stockMovements) {
       db.prepare(`
         INSERT INTO stock_movements (id, product_id, type, quantity, ref_type, ref_id, note, created_at)
@@ -452,14 +503,13 @@ export const writeDatabase = async (database) => {
     }
 
     // 8. Sync auditLogs
-    db.prepare("DELETE FROM audit_logs").run();
     for (const a of database.auditLogs) {
       db.prepare(`
         INSERT INTO audit_logs (id, actor_user_id, action, entity_type, entity_id, metadata_json, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(
         a.id,
-        a.actorUserId || '',
+        a.actorUserId || null,
         a.action,
         a.entityType,
         a.entityId,
@@ -543,3 +593,68 @@ export const databaseMeta = {
   file: DB_FILE,
   schemaVersion: SCHEMA_VERSION,
 };
+
+// ── User creation (registration) ─────────────────────────────────────────────
+
+export const setUserStatus = (userId, status) => {
+  db.prepare('UPDATE users SET status = ?, updated_at = ? WHERE id = ?')
+    .run(status, new Date().toISOString(), userId);
+};
+
+export const removeUser = (userId) => {
+  setUserStatus(userId, 'deleted');
+};
+
+export const updateUserActiveCat = (userId, activeCat) => {
+  db.prepare('UPDATE users SET active_cat_json = ?, updated_at = ? WHERE id = ?')
+    .run(JSON.stringify(activeCat), new Date().toISOString(), userId);
+};
+
+export const createUser = ({ id, email, ownerName, role = 'USER', activeCat, passwordHash, passwordSalt }) => {
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO users (id, email, owner_name, is_admin, role, active_cat_json, password_hash, password_salt, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id, email, ownerName,
+    role === 'ADMIN' ? 1 : 0, role,
+    JSON.stringify(activeCat),
+    passwordHash, passwordSalt,
+    now, now
+  );
+  return { id, email, ownerName, role, isAdmin: role === 'ADMIN', activeCat, createdAt: now };
+};
+
+// ── Session store (SQLite-backed) ─────────────────────────────────────────────
+
+const SESSION_MAX_AGE_SECONDS = 86400; // 24 h
+
+export const createSession = (userId, csrfToken, maxAge = SESSION_MAX_AGE_SECONDS) => {
+  const id = randomUUID();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + maxAge * 1000).toISOString();
+  db.prepare(`
+    INSERT INTO sessions (id, user_id, csrf_token, created_at, expires_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(id, userId, csrfToken, now.toISOString(), expiresAt);
+  return id;
+};
+
+export const getSession = (sessionId) => {
+  const row = db.prepare(`
+    SELECT id, user_id, csrf_token
+    FROM sessions
+    WHERE id = ? AND expires_at > ?
+  `).get(sessionId, new Date().toISOString());
+  if (!row) return null;
+  return { sessionId: row.id, userId: row.user_id, csrfToken: row.csrf_token };
+};
+
+export const deleteSession = (sessionId) => {
+  db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
+};
+
+export const cleanExpiredSessions = () =>
+  db.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(new Date().toISOString()).changes;
+
+export { db };

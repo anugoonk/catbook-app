@@ -22,6 +22,11 @@ dist-ssr
 *.db
 server/data/
 server/backups/
+server/uploads/
+
+# Process and temp files
+*.pid
+*.tmp
 
 # Editor directories and files
 .vscode/*

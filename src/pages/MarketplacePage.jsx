@@ -9,7 +9,7 @@ import { useUser } from '../context/UserContext';
 import { useCart } from '../context/CartContext';
 import CreateListingModal from '../components/CreateListingModal';
 import ProductDetailModal from '../components/ProductDetailModal';
-import { adminApi, productApi } from '../services/commerceApi';
+import { adminApi, productApi, sellerApi } from '../services/commerceApi';
 import { trackMarketingEvent } from '../services/marketingTracking';
 import { productSeoMeta, setSeoMeta } from '../utils/seo';
 
@@ -379,6 +379,7 @@ const MarketplacePage = () => {
   const { currentUser } = useUser();
   const location = useLocation();
   const isAdmin = currentUser.isAdmin;
+  const isSeller = currentUser.role === 'SELLER' || currentUser.isAdmin;
   const { addItem, count, setIsOpen } = useCart();
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -441,14 +442,11 @@ const MarketplacePage = () => {
 
   const handleAddListing = async (newItem) => {
     const sku = newItem.sku || `MKT-${Date.now().toString(36).toUpperCase()}`;
-    const response = await adminApi.createProduct({
-      ...newItem,
-      sku,
-      slug: newItem.slug || sku.toLowerCase(),
-      status: 'active',
-    });
+    const payload = { ...newItem, sku, slug: newItem.slug || sku.toLowerCase(), status: 'active' };
+    const api = isAdmin ? adminApi : sellerApi;
+    const response = await api.createProduct(payload);
     setItems(prev => [response.product, ...prev]);
-    showToast(`Saved "${response.product.title}" to product API`);
+    showToast(`บันทึก "${response.product.title}" แล้ว`);
   };
 
   const displayed = activeCategory === 'ทั้งหมด'
@@ -505,7 +503,7 @@ const MarketplacePage = () => {
           <h1 className="text-[22px] font-black text-black mb-1">Cat Shop 🐾</h1>
           <p className="text-[12px] text-gray-400 mb-4">สินค้าสำหรับน้องแมวโดยเฉพาะ</p>
 
-          {isAdmin && (
+          {isSeller && (
             <button
               onClick={() => setIsModalOpen(true)}
               className="w-full flex items-center justify-center gap-2 bg-[#ebf5ff] hover:bg-[#dce9ff] text-[#1877f2] font-semibold text-[14px] py-2.5 rounded-lg transition-colors mb-3"
@@ -615,7 +613,7 @@ const MarketplacePage = () => {
                 </span>
               )}
             </button>
-            {isAdmin && (
+            {isSeller && (
               <button
                 onClick={() => setIsModalOpen(true)}
                 className="flex items-center gap-1 bg-[#ebf5ff] text-[#1877f2] font-semibold text-sm px-3 py-1.5 rounded-lg"
@@ -766,7 +764,7 @@ const MarketplacePage = () => {
         )}
       </div>
 
-      {isAdmin && (
+      {isSeller && (
         <CreateListingModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}

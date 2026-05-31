@@ -4,6 +4,8 @@ import { mockUsers } from '../data/mockData';
 import { useUser } from '../context/UserContext';
 import { useNotifications } from '../context/NotificationContext';
 import { translateToMeow } from '../utils/meowTranslator';
+import { socialApi } from '../services/socialApi';
+import { uploadFile } from '../services/apiClient';
 
 const FEELINGS = [
   { emoji: '😴', label: 'ง่วงนอน' },
@@ -84,11 +86,13 @@ const CreatePostModal = ({ isOpen, onClose, onPost, initialPanel = null }) => {
   const [text, setText] = useState('');
   const [activePanel, setActivePanel] = useState(null);
   const [imagePreviews, setImagePreviews] = useState([]);
+  const [imageFiles, setImageFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [taggedCats, setTaggedCats] = useState([]);
   const [tagSearch, setTagSearch] = useState('');
   const [selectedFeeling, setSelectedFeeling] = useState(null);
   const [meowMode, setMeowMode] = useState(false);
+  const [posting, setPosting] = useState(false);
   const [mentionQuery, setMentionQuery] = useState(null);
   const [mentionStart, setMentionStart] = useState(0);
   const textareaRef = useRef(null);
@@ -112,6 +116,7 @@ const CreatePostModal = ({ isOpen, onClose, onPost, initialPanel = null }) => {
       setText('');
       setActivePanel(null);
       setImagePreviews([]);
+      setImageFiles([]);
       setIsDragging(false);
       setTaggedCats([]);
       setTagSearch('');
@@ -129,13 +134,17 @@ const CreatePostModal = ({ isOpen, onClose, onPost, initialPanel = null }) => {
   const addImages = (files) => {
     const file = Array.from(files).find(f => f.type.startsWith('image/'));
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setImagePreviews([url]);
+    setImagePreviews(prev => { prev.forEach(u => { if (u.startsWith('blob:')) URL.revokeObjectURL(u); }); return [URL.createObjectURL(file)]; });
+    setImageFiles([file]);
     setActivePanel('photo');
   };
 
   const removeImage = (idx) => {
-    setImagePreviews(prev => prev.filter((_, i) => i !== idx));
+    setImagePreviews(prev => {
+      if (prev[idx]?.startsWith('blob:')) URL.revokeObjectURL(prev[idx]);
+      return prev.filter((_, i) => i !== idx);
+    });
+    setImageFiles(prev => prev.filter((_, i) => i !== idx));
   };
 
   const handleImageChange = (e) => {
@@ -170,32 +179,45 @@ const CreatePostModal = ({ isOpen, onClose, onPost, initialPanel = null }) => {
     setTimeout(() => textareaRef.current?.focus(), 0);
   };
 
-  const handlePost = () => {
-    if (!canPost) return;
-    const content = text.trim();
-    [...content.matchAll(/@(\S+)/g)].forEach(([, name]) => {
-      if (mentionableCats.find(c => c.name === name)) {
-        addNotification({
-          type: 'tag',
-          actor: { name: currentUser.activeCat.name, avatar: currentUser.activeCat.avatar },
-          message: `แท็กคุณในโพสต์: "${content.length > 40 ? content.slice(0, 40) + '…' : content}"`,
-        });
+  const handlePost = async () => {
+    if (!canPost || posting) return;
+    const rawContent = text.trim();
+    const content = meowMode && rawContent ? translateToMeow(rawContent) : rawContent;
+
+    setPosting(true);
+    try {
+      // Upload image to server first (if any)
+      let imageUrl = null;
+      if (imageFiles.length > 0) {
+        const result = await uploadFile(imageFiles[0]);
+        imageUrl = result.url;
       }
-    });
-    onPost?.({
-      id: `p-${Date.now()}`,
-      cat: { ...currentUser.activeCat },
-      time: 'เมื่อกี้นี้',
-      content: meowMode && content ? translateToMeow(content) : content,
-      feeling: selectedFeeling ? `${selectedFeeling.emoji} ${selectedFeeling.label}` : null,
-      images: imagePreviews.length > 0 ? imagePreviews : null,
-      image: imagePreviews[0] ?? null,
-      likes: 0,
-      comments: 0,
-      isLiked: false,
-      commentsList: [],
-    });
-    onClose();
+
+      const data = await socialApi.createPost({
+        content,
+        feeling: selectedFeeling ? `${selectedFeeling.emoji} ${selectedFeeling.label}` : null,
+        location: null,
+        imageUrl,
+      });
+
+      // Fire mention notifications locally
+      [...rawContent.matchAll(/@(\S+)/g)].forEach(([, name]) => {
+        if (mentionableCats.find(c => c.name === name)) {
+          addNotification({
+            type: 'tag',
+            actor: { name: currentUser.activeCat.name, avatar: currentUser.activeCat.avatar },
+            message: `แท็กคุณในโพสต์: "${rawContent.length > 40 ? rawContent.slice(0, 40) + '…' : rawContent}"`,
+          });
+        }
+      });
+
+      onPost?.(data.post);
+      onClose();
+    } catch {
+      // keep modal open on error
+    } finally {
+      setPosting(false);
+    }
   };
 
   const toggleTag = (cat) => {
@@ -459,14 +481,14 @@ const CreatePostModal = ({ isOpen, onClose, onPost, initialPanel = null }) => {
 
           <button
             onClick={handlePost}
-            disabled={!canPost}
+            disabled={!canPost || posting}
             className={`w-full py-2.5 rounded-lg font-bold text-[15px] transition-colors
               disabled:bg-[#e4e6eb] disabled:text-[#bcc0c4] disabled:cursor-not-allowed
               ${meowMode
                 ? 'enabled:bg-purple-500 enabled:hover:bg-purple-600 enabled:text-white'
                 : 'enabled:bg-[#4267B2] enabled:hover:bg-[#3b5998] enabled:text-white'}`}
           >
-            {meowMode ? '🐾 โพสต์เป็นภาษาแมว' : 'โพสต์'}
+            {posting ? 'กำลังโพสต์...' : meowMode ? '🐾 โพสต์เป็นภาษาแมว' : 'โพสต์'}
           </button>
         </div>
       </div>

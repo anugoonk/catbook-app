@@ -1,11 +1,14 @@
 import { createServer } from 'node:http';
-import { randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 import { mockUsers } from '../src/data/mockData.js';
 import { addCartItem, clearCart, getCart, removeCartItem, updateCartItem } from './cartStore.js';
 import { cancelAdminOrder, createOrderFromCart, getOrder, listAllOrders, listOrders, markPaymentFailed, markPaymentPaid, refundPayment, updateAdminOrder, updateOrderStatus } from './orderStore.js';
-import { backupDatabase, getDatabaseHealth, readDatabase, withDatabase } from './database.js';
+import { backupDatabase, cleanExpiredSessions, createSession, createUser, db, deleteSession, getDatabaseHealth, getSession, readDatabase, removeUser, setUserStatus, updateUserActiveCat, withDatabase } from './database.js';
+import { parseUpload, serveUpload } from './uploadStore.js';
+import { createComment, createPost, deletePost, deletePostAdmin, listAdminPosts, listComments, listPosts, removeReaction, seedMockPosts, setPostHidden, toggleFollow, upsertReaction } from './socialStore.js';
 import { findProductBySlug, listProducts } from './productRepository.js';
 import { adjustAdminStock, archiveAdminProduct, createAdminProduct, listAdminProducts, updateAdminProduct } from './adminProductRepository.js';
+import { adjustSellerStock, archiveSellerProduct, createSellerProduct, listSellerProducts, updateSellerProduct } from './sellerProductRepository.js';
 import { apiError, auditLog, isStrongEnoughDevPassword, mutationMethods, newCsrfToken, parseNonNegativeInteger, parsePositiveInteger } from './security.js';
 import { logError, logInfo, logWarn } from './logger.js';
 import { validateRuntimeConfig } from './runtimeConfig.js';
@@ -14,27 +17,68 @@ const { config, warnings: runtimeWarnings } = validateRuntimeConfig('catbook-api
 const PORT = config.apiPort;
 const DEV_PASSWORD = config.devPassword;
 const SESSION_COOKIE = 'catbook_sid';
-const sessions = new Map();
-const csrfTokens = new Map();
 
 runtimeWarnings.forEach(warning => logWarn('runtime.config_warning', { service: config.serviceName, warning }));
 
-const hashPassword = (password, salt = 'catbook-dev-salt') =>
-  scryptSync(password, salt, 32);
+// Per-user password verification — reads salt+hash from DB
+const verifyPassword = (password, userId) => {
+  const row = db.prepare('SELECT password_hash, password_salt FROM users WHERE id = ?').get(userId);
+  if (!row?.password_hash || !row?.password_salt) return false;
+  const candidate = scryptSync(password, row.password_salt, 32);
+  const stored = Buffer.from(row.password_hash, 'hex');
+  return candidate.length === stored.length && timingSafeEqual(candidate, stored);
+};
 
-const devPasswordHash = hashPassword(DEV_PASSWORD);
+// Login rate limiter: max 10 attempts / 15 min / IP
+const loginAttempts = new Map();
+const LOGIN_MAX = 10;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
-// Seed authUsers from mockData, then overlay DB roles so changes survive restart
+const checkLoginRateLimit = (ip) => {
+  const now = Date.now();
+  const record = loginAttempts.get(ip);
+  if (!record || now >= record.resetAt) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+    return true;
+  }
+  if (record.count >= LOGIN_MAX) return false;
+  record.count += 1;
+  return true;
+};
+
+const resetLoginRateLimit = (ip) => loginAttempts.delete(ip);
+
+const getClientIp = (request) =>
+  request.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+  request.socket?.remoteAddress || 'unknown';
+
+// Load ALL users from DB (includes mock users + registered users)
 const dbData = await readDatabase();
-let authUsers = mockUsers.map(user => {
-  const dbUser = dbData.users.find(u => u.id === user.id);
-  return {
-    ...user,
-    role: dbUser?.role || user.role || 'USER',
-    isAdmin: (dbUser?.role || user.role) === 'ADMIN',
-    passwordHash: devPasswordHash,
-  };
-});
+seedMockPosts();
+let authUsers = dbData.users.map(dbUser => ({
+  id: dbUser.id,
+  email: dbUser.email,
+  ownerName: dbUser.ownerName,
+  role: dbUser.role || 'USER',
+  isAdmin: dbUser.role === 'ADMIN',
+  status: dbUser.status || 'active',
+  activeCat: dbUser.activeCat,
+  createdAt: dbUser.createdAt,
+}));
+
+// Seed per-user password hash+salt for any user that doesn't have one yet
+for (const user of authUsers) {
+  const row = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(user.id);
+  if (!row?.password_hash) {
+    const salt = randomBytes(32).toString('hex');
+    const hash = scryptSync(DEV_PASSWORD, salt, 32).toString('hex');
+    db.prepare('UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?')
+      .run(hash, salt, user.id);
+    logInfo('auth.password_seeded', { userId: user.id });
+  }
+}
+
+cleanExpiredSessions();
 
 const sanitizeUser = (user) => {
   const clone = { ...user };
@@ -59,9 +103,19 @@ const readBody = (request) => new Promise((resolve, reject) => {
   });
 });
 
+const SECURITY_HEADERS = {
+  'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none';",
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  ...(config.nodeEnv === 'production' ? { 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' } : {}),
+};
+
 const sendJson = (response, status, payload, headers = {}) => {
   response.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
+    ...SECURITY_HEADERS,
     ...headers,
   });
   response.end(JSON.stringify(payload));
@@ -82,8 +136,10 @@ const getCookie = (request, name) => {
 
 const getSessionUser = (request) => {
   const sessionId = getCookie(request, SESSION_COOKIE);
-  const userId = sessionId ? sessions.get(sessionId) : null;
-  const user = userId ? authUsers.find(item => item.id === userId) : null;
+  if (!sessionId) return null;
+  const session = getSession(sessionId);
+  if (!session) return null;
+  const user = authUsers.find(item => item.id === session.userId);
   return user ? sanitizeUser(user) : null;
 };
 
@@ -117,22 +173,22 @@ const requireSellerUser = (request, response) => {
 };
 
 const assertCsrf = (request, response, url) => {
-  if (!mutationMethods.has(request.method) || url.pathname === '/api/v1/auth/login') return true;
+  const publicMutations = ['/api/v1/auth/login', '/api/v1/auth/register'];
+  if (!mutationMethods.has(request.method) || publicMutations.includes(url.pathname)) return true;
   const sessionId = getCookie(request, SESSION_COOKIE);
-  const expected = sessionId ? csrfTokens.get(sessionId) : null;
+  if (!sessionId) {
+    sendError(response, 403, 'Invalid CSRF token', 'INVALID_CSRF');
+    return false;
+  }
+  const session = getSession(sessionId);
   const actual = request.headers['x-csrf-token'];
-  if (expected && actual === expected) return true;
+  if (session && actual === session.csrfToken) return true;
   sendError(response, 403, 'Invalid CSRF token', 'INVALID_CSRF');
   return false;
 };
 
-const isPasswordMatch = (password, passwordHash) => {
-  const candidate = hashPassword(password);
-  return candidate.length === passwordHash.length && timingSafeEqual(candidate, passwordHash);
-};
-
 const setSessionCookie = (sessionId) =>
-  `${SESSION_COOKIE}=${sessionId}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400`;
+  `${SESSION_COOKIE}=${sessionId}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400${config.nodeEnv === 'production' ? '; Secure' : ''}`;
 
 const clearSessionCookie = () =>
   `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`;
@@ -145,6 +201,13 @@ const server = createServer(async (request, response) => {
 
   try {
     if (!assertCsrf(request, response, url)) return;
+
+    // Static: serve uploaded images (no auth required)
+    if (request.method === 'GET' && url.pathname.startsWith('/uploads/')) {
+      const filename = url.pathname.slice('/uploads/'.length);
+      await serveUpload(filename, response);
+      return;
+    }
 
     if (request.method === 'GET' && url.pathname === '/api/v1/health') {
       const database = await getDatabaseHealth();
@@ -181,11 +244,13 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === 'GET' && url.pathname === '/api/v1/auth/me') {
-      const user = requireSessionUser(request, response);
-      if (!user) return;
       const sessionId = getCookie(request, SESSION_COOKIE);
-      if (sessionId && !csrfTokens.has(sessionId)) csrfTokens.set(sessionId, newCsrfToken());
-      sendJson(response, 200, { user, csrfToken: csrfTokens.get(sessionId) });
+      if (!sessionId) { sendError(response, 401, 'Not authenticated', 'NOT_AUTHENTICATED'); return; }
+      const session = getSession(sessionId);
+      if (!session) { sendError(response, 401, 'Not authenticated', 'NOT_AUTHENTICATED'); return; }
+      const user = authUsers.find(u => u.id === session.userId);
+      if (!user) { sendError(response, 401, 'Not authenticated', 'NOT_AUTHENTICATED'); return; }
+      sendJson(response, 200, { user: sanitizeUser(user), csrfToken: session.csrfToken });
       return;
     }
 
@@ -445,6 +510,12 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === 'POST' && url.pathname === '/api/v1/auth/login') {
+      const ip = getClientIp(request);
+      if (!checkLoginRateLimit(ip)) {
+        sendError(response, 429, 'Too many login attempts. Please try again in 15 minutes.', 'RATE_LIMITED');
+        return;
+      }
+
       let credentials;
       try {
         credentials = await readBody(request);
@@ -457,16 +528,24 @@ const server = createServer(async (request, response) => {
       const normalizedEmail = String(email || '').trim().toLowerCase();
       const user = authUsers.find(item => item.email === normalizedEmail);
 
-      if (!isStrongEnoughDevPassword(password) || !user || !isPasswordMatch(String(password || ''), user.passwordHash)) {
-        await auditLog({ action: 'auth.login_failed', entityType: 'user', entityId: normalizedEmail, metadata: { email: normalizedEmail } });
+      if (!isStrongEnoughDevPassword(password) || !user || !verifyPassword(String(password || ''), user.id)) {
+        await auditLog({ action: 'auth.login_failed', entityType: 'user', entityId: normalizedEmail, metadata: { ip } });
         sendError(response, 401, 'Invalid email or password', 'INVALID_CREDENTIALS');
         return;
       }
 
-      const sessionId = randomUUID();
+      if (user.status === 'banned') {
+        sendError(response, 403, 'This account has been suspended', 'ACCOUNT_BANNED');
+        return;
+      }
+      if (user.status === 'deleted') {
+        sendError(response, 401, 'Invalid email or password', 'INVALID_CREDENTIALS');
+        return;
+      }
+
+      resetLoginRateLimit(ip);
       const csrfToken = newCsrfToken();
-      sessions.set(sessionId, user.id);
-      csrfTokens.set(sessionId, csrfToken);
+      const sessionId = createSession(user.id, csrfToken);
       await auditLog({ actorUserId: user.id, action: 'auth.login', entityType: 'user', entityId: user.id });
       sendJson(response, 200, { user: sanitizeUser(user), csrfToken }, {
         'Set-Cookie': setSessionCookie(sessionId),
@@ -474,17 +553,225 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (request.method === 'DELETE' && url.pathname === '/api/v1/auth/account') {
+      const user = requireSessionUser(request, response);
+      if (!user) return;
+      // Delete all user-generated social content
+      db.prepare('DELETE FROM post_reactions WHERE user_id = ?').run(user.id);
+      db.prepare('DELETE FROM post_comments WHERE user_id = ?').run(user.id);
+      db.prepare('DELETE FROM follows WHERE follower_id = ? OR followee_id = ?').run(user.id, user.id);
+      db.prepare('DELETE FROM posts WHERE user_id = ?').run(user.id);
+      // Soft delete user account
+      removeUser(user.id);
+      const idx = authUsers.findIndex(u => u.id === user.id);
+      if (idx >= 0) authUsers[idx] = { ...authUsers[idx], status: 'deleted' };
+      // Invalidate session
+      const sessionId = getCookie(request, SESSION_COOKIE);
+      if (sessionId) deleteSession(sessionId);
+      await auditLog({ actorUserId: user.id, action: 'auth.account_deleted', entityType: 'user', entityId: user.id });
+      sendJson(response, 200, { ok: true }, { 'Set-Cookie': clearSessionCookie() });
+      return;
+    }
+
+    if (request.method === 'POST' && url.pathname === '/api/v1/auth/register') {
+      let body;
+      try { body = await readBody(request); }
+      catch { sendError(response, 400, 'Invalid JSON body', 'INVALID_JSON'); return; }
+
+      const normalizedEmail = String(body.email || '').trim().toLowerCase();
+      const cleanPassword   = String(body.password || '');
+      const cleanOwnerName  = String(body.ownerName || '').trim();
+      const cleanCatName    = String(body.catName || '').trim();
+
+      if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        sendError(response, 400, 'Valid email is required', 'VALIDATION_ERROR'); return;
+      }
+      if (cleanPassword.length < 8) {
+        sendError(response, 400, 'Password must be at least 8 characters', 'VALIDATION_ERROR'); return;
+      }
+      if (!cleanOwnerName) {
+        sendError(response, 400, 'Owner name is required', 'VALIDATION_ERROR'); return;
+      }
+      if (!cleanCatName) {
+        sendError(response, 400, 'Cat name is required', 'VALIDATION_ERROR'); return;
+      }
+      if (authUsers.find(u => u.email === normalizedEmail)) {
+        sendError(response, 409, 'Email already registered', 'EMAIL_EXISTS'); return;
+      }
+
+      const DEFAULT_AVATARS = [
+        'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200&q=80',
+        'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=200&q=80',
+        'https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=200&q=80',
+        'https://images.unsplash.com/photo-1596854407944-bf87f6fdd49e?w=200&q=80',
+        'https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=200&q=80',
+        'https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=200&q=80',
+      ];
+      const avatar = DEFAULT_AVATARS[Math.floor(Math.random() * DEFAULT_AVATARS.length)];
+      const userId = `usr-${randomUUID()}`;
+      const catId  = `cat-${randomUUID()}`;
+      const salt   = randomBytes(32).toString('hex');
+      const hash   = scryptSync(cleanPassword, salt, 32).toString('hex');
+
+      const activeCat = {
+        id: catId,
+        name: cleanCatName,
+        avatar,
+        cover: avatar,
+        breed: String(body.catBreed || '').trim() || 'ไม่ระบุ',
+        bio:   String(body.catBio || '').trim(),
+        status: 'ออนไลน์',
+      };
+
+      const newUser = createUser({ id: userId, email: normalizedEmail, ownerName: cleanOwnerName, role: 'USER', activeCat, passwordHash: hash, passwordSalt: salt });
+      authUsers.push(newUser);
+
+      await auditLog({ actorUserId: userId, action: 'auth.register', entityType: 'user', entityId: userId });
+
+      const csrfToken = newCsrfToken();
+      const sessionId = createSession(userId, csrfToken);
+      sendJson(response, 201, { user: sanitizeUser(newUser), csrfToken }, {
+        'Set-Cookie': setSessionCookie(sessionId),
+      });
+      return;
+    }
+
+    if (request.method === 'POST' && url.pathname === '/api/v1/uploads') {
+      const user = requireSessionUser(request, response);
+      if (!user) return;
+      try {
+        const { filename } = await parseUpload(request);
+        await auditLog({ actorUserId: user.id, action: 'upload.image', entityType: 'file', entityId: filename });
+        sendJson(response, 201, { url: `/uploads/${filename}`, filename });
+      } catch (err) {
+        sendError(response, err.status || 400, err.message || 'Upload failed', 'UPLOAD_ERROR');
+      }
+      return;
+    }
+
+    if (request.method === 'PATCH' && url.pathname === '/api/v1/auth/profile') {
+      const user = requireSessionUser(request, response);
+      if (!user) return;
+      const body = await readBody(request);
+      const cleanName = String(body.name || '').trim();
+      if (!cleanName) { sendError(response, 400, 'Cat name is required', 'VALIDATION_ERROR'); return; }
+
+      const authEntry = authUsers.find(u => u.id === user.id);
+      const updatedCat = {
+        ...(authEntry?.activeCat || {}),
+        name:   cleanName,
+        breed:  String(body.breed  ?? authEntry?.activeCat?.breed ?? '').trim(),
+        bio:    String(body.bio    ?? authEntry?.activeCat?.bio   ?? '').trim(),
+        avatar: String(body.avatar || authEntry?.activeCat?.avatar || '').trim(),
+        cover:  String(body.cover  || authEntry?.activeCat?.cover  || '').trim(),
+      };
+      updateUserActiveCat(user.id, updatedCat);
+      const idx = authUsers.findIndex(u => u.id === user.id);
+      if (idx >= 0) authUsers[idx] = { ...authUsers[idx], activeCat: updatedCat };
+      sendJson(response, 200, { activeCat: updatedCat });
+      return;
+    }
+
     if (request.method === 'POST' && url.pathname === '/api/v1/auth/logout') {
       const sessionId = getCookie(request, SESSION_COOKIE);
-      const userId = sessionId ? sessions.get(sessionId) : '';
       if (sessionId) {
-        sessions.delete(sessionId);
-        csrfTokens.delete(sessionId);
+        const session = getSession(sessionId);
+        if (session) await auditLog({ actorUserId: session.userId, action: 'auth.logout', entityType: 'user', entityId: session.userId });
+        deleteSession(sessionId);
       }
-      if (userId) await auditLog({ actorUserId: userId, action: 'auth.logout', entityType: 'user', entityId: userId });
       sendJson(response, 200, { ok: true }, {
         'Set-Cookie': clearSessionCookie(),
       });
+      return;
+    }
+
+    // ── Social: Posts ──────────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/api/v1/posts') {
+      const user = requireSessionUser(request, response);
+      if (!user) return;
+      sendJson(response, 200, { posts: listPosts(user.id) });
+      return;
+    }
+
+    if (request.method === 'POST' && url.pathname === '/api/v1/posts') {
+      const user = requireSessionUser(request, response);
+      if (!user) return;
+      const { content, feeling, location, imageUrl } = await readBody(request);
+      if (!content?.trim() && !imageUrl) {
+        sendError(response, 400, 'content or imageUrl required', 'VALIDATION_ERROR');
+        return;
+      }
+      const post = createPost(user.id, { content: content?.trim(), feeling: feeling || null, location: location || null, imageUrl: imageUrl || null });
+      await auditLog({ actorUserId: user.id, action: 'social.post_created', entityType: 'post', entityId: post.id });
+      sendJson(response, 201, { post });
+      return;
+    }
+
+    if (request.method === 'DELETE' && url.pathname.startsWith('/api/v1/posts/') && !url.pathname.includes('/reactions') && !url.pathname.includes('/comments')) {
+      const user = requireSessionUser(request, response);
+      if (!user) return;
+      const postId = decodeURIComponent(url.pathname.replace('/api/v1/posts/', ''));
+      const result = deletePost(postId, user.id);
+      if (result.error) { sendError(response, result.error.status, result.error.message); return; }
+      await auditLog({ actorUserId: user.id, action: 'social.post_deleted', entityType: 'post', entityId: postId });
+      sendJson(response, 200, result);
+      return;
+    }
+
+    // ── Social: Reactions ──────────────────────────────────────────
+    if (request.method === 'POST' && url.pathname.endsWith('/reactions') && url.pathname.startsWith('/api/v1/posts/')) {
+      const user = requireSessionUser(request, response);
+      if (!user) return;
+      const postId = decodeURIComponent(url.pathname.replace('/api/v1/posts/', '').replace('/reactions', ''));
+      const { type } = await readBody(request);
+      const VALID_REACTIONS = ['paw', 'love', 'heart', 'haha', 'sad'];
+      if (!VALID_REACTIONS.includes(type)) {
+        sendError(response, 400, `type must be one of: ${VALID_REACTIONS.join(', ')}`, 'VALIDATION_ERROR');
+        return;
+      }
+      const result = upsertReaction(postId, user.id, type);
+      if (result.error) { sendError(response, result.error.status, result.error.message); return; }
+      sendJson(response, 200, result);
+      return;
+    }
+
+    if (request.method === 'DELETE' && url.pathname.endsWith('/reactions') && url.pathname.startsWith('/api/v1/posts/')) {
+      const user = requireSessionUser(request, response);
+      if (!user) return;
+      const postId = decodeURIComponent(url.pathname.replace('/api/v1/posts/', '').replace('/reactions', ''));
+      sendJson(response, 200, removeReaction(postId, user.id));
+      return;
+    }
+
+    // ── Social: Comments ───────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname.endsWith('/comments') && url.pathname.startsWith('/api/v1/posts/')) {
+      const user = requireSessionUser(request, response);
+      if (!user) return;
+      const postId = decodeURIComponent(url.pathname.replace('/api/v1/posts/', '').replace('/comments', ''));
+      sendJson(response, 200, { comments: listComments(postId, user.id) });
+      return;
+    }
+
+    if (request.method === 'POST' && url.pathname.endsWith('/comments') && url.pathname.startsWith('/api/v1/posts/')) {
+      const user = requireSessionUser(request, response);
+      if (!user) return;
+      const postId = decodeURIComponent(url.pathname.replace('/api/v1/posts/', '').replace('/comments', ''));
+      const { text, meow } = await readBody(request);
+      if (!text?.trim()) { sendError(response, 400, 'text required', 'VALIDATION_ERROR'); return; }
+      const result = createComment(postId, user.id, { text: text.trim(), meow: Boolean(meow) });
+      if (result.error) { sendError(response, result.error.status, result.error.message); return; }
+      sendJson(response, 201, { comment: result });
+      return;
+    }
+
+    // ── Social: Follow ─────────────────────────────────────────────
+    if (request.method === 'POST' && url.pathname.endsWith('/follow') && url.pathname.startsWith('/api/v1/users/')) {
+      const user = requireSessionUser(request, response);
+      if (!user) return;
+      const targetId = decodeURIComponent(url.pathname.replace('/api/v1/users/', '').replace('/follow', ''));
+      const result = toggleFollow(user.id, targetId);
+      if (result.error) { sendError(response, result.error.status, result.error.message); return; }
+      sendJson(response, 200, result);
       return;
     }
 
@@ -505,6 +792,37 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (request.method === 'PATCH' && url.pathname.startsWith('/api/v1/admin/users/') && url.pathname.endsWith('/status')) {
+      const actor = requireAdminUser(request, response);
+      if (!actor) return;
+      const targetId = decodeURIComponent(url.pathname.replace('/api/v1/admin/users/', '').replace('/status', ''));
+      if (targetId === actor.id) { sendError(response, 400, 'Cannot change your own status', 'SELF_STATUS_CHANGE'); return; }
+      const { status } = await readBody(request);
+      const VALID_STATUSES = ['active', 'banned'];
+      if (!VALID_STATUSES.includes(status)) {
+        sendError(response, 400, `status must be one of: ${VALID_STATUSES.join(', ')}`, 'VALIDATION_ERROR'); return;
+      }
+      setUserStatus(targetId, status);
+      const idx = authUsers.findIndex(u => u.id === targetId);
+      if (idx >= 0) authUsers[idx] = { ...authUsers[idx], status };
+      await auditLog({ actorUserId: actor.id, action: `admin.user_${status}`, entityType: 'user', entityId: targetId });
+      sendJson(response, 200, { ok: true, userId: targetId, status });
+      return;
+    }
+
+    if (request.method === 'DELETE' && url.pathname.startsWith('/api/v1/admin/users/')) {
+      const actor = requireAdminUser(request, response);
+      if (!actor) return;
+      const targetId = decodeURIComponent(url.pathname.replace('/api/v1/admin/users/', ''));
+      if (targetId === actor.id) { sendError(response, 400, 'Cannot delete yourself', 'SELF_DELETE'); return; }
+      removeUser(targetId);
+      const idx = authUsers.findIndex(u => u.id === targetId);
+      if (idx >= 0) authUsers[idx] = { ...authUsers[idx], status: 'deleted' };
+      await auditLog({ actorUserId: actor.id, action: 'admin.user_deleted', entityType: 'user', entityId: targetId });
+      sendJson(response, 200, { ok: true, userId: targetId });
+      return;
+    }
+
     if (request.method === 'PATCH' && url.pathname.startsWith('/api/v1/admin/users/')) {
       const actor = requireAdminUser(request, response);
       if (!actor) return;
@@ -519,7 +837,6 @@ const server = createServer(async (request, response) => {
         sendError(response, 400, `role must be one of: ${VALID_ROLES.join(', ')}`, 'VALIDATION_ERROR');
         return;
       }
-      // Update DB
       await withDatabase(db => {
         const target = db.users.find(u => u.id === targetId);
         if (!target) return;
@@ -527,19 +844,89 @@ const server = createServer(async (request, response) => {
         target.isAdmin = role === 'ADMIN';
         target.updatedAt = new Date().toISOString();
       });
-      // Update in-memory authUsers so the change takes effect immediately
       const idx = authUsers.findIndex(u => u.id === targetId);
-      if (idx >= 0) {
-        authUsers[idx] = { ...authUsers[idx], role, isAdmin: role === 'ADMIN' };
-      }
-      await auditLog({
-        actorUserId: actor.id,
-        action: 'admin.user_role_updated',
-        entityType: 'user',
-        entityId: targetId,
-        metadata: { newRole: role },
-      });
+      if (idx >= 0) authUsers[idx] = { ...authUsers[idx], role, isAdmin: role === 'ADMIN' };
+      await auditLog({ actorUserId: actor.id, action: 'admin.user_role_updated', entityType: 'user', entityId: targetId, metadata: { newRole: role } });
       sendJson(response, 200, { ok: true, userId: targetId, role });
+      return;
+    }
+
+    // ── Seller: Products ──────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/api/v1/seller/products') {
+      const user = requireSellerUser(request, response);
+      if (!user) return;
+      sendJson(response, 200, await listSellerProducts(user));
+      return;
+    }
+
+    if (request.method === 'POST' && url.pathname === '/api/v1/seller/products') {
+      const user = requireSellerUser(request, response);
+      if (!user) return;
+      const result = await createSellerProduct(await readBody(request), user);
+      if (result.error) { sendJson(response, result.error.status, result.error); return; }
+      await auditLog({ actorUserId: user.id, action: 'seller.product_create', entityType: 'product', entityId: result.product.id });
+      sendJson(response, 201, result);
+      return;
+    }
+
+    if (request.method === 'PATCH' && url.pathname.startsWith('/api/v1/seller/products/') && url.pathname.endsWith('/stock')) {
+      const user = requireSellerUser(request, response);
+      if (!user) return;
+      const productId = decodeURIComponent(url.pathname.replace('/api/v1/seller/products/', '').replace('/stock', ''));
+      const result = await adjustSellerStock(productId, await readBody(request), user);
+      if (result.error) { sendJson(response, result.error.status, result.error); return; }
+      sendJson(response, 200, result);
+      return;
+    }
+
+    if (request.method === 'PATCH' && url.pathname.startsWith('/api/v1/seller/products/')) {
+      const user = requireSellerUser(request, response);
+      if (!user) return;
+      const productId = decodeURIComponent(url.pathname.replace('/api/v1/seller/products/', ''));
+      const result = await updateSellerProduct(productId, await readBody(request), user);
+      if (result.error) { sendJson(response, result.error.status, result.error); return; }
+      sendJson(response, 200, result);
+      return;
+    }
+
+    if (request.method === 'DELETE' && url.pathname.startsWith('/api/v1/seller/products/')) {
+      const user = requireSellerUser(request, response);
+      if (!user) return;
+      const productId = decodeURIComponent(url.pathname.replace('/api/v1/seller/products/', ''));
+      const result = await archiveSellerProduct(productId, user);
+      if (result.error) { sendJson(response, result.error.status, result.error); return; }
+      sendJson(response, 200, result);
+      return;
+    }
+
+    // ── Admin: Posts ───────────────────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/api/v1/admin/posts') {
+      const user = requireAdminUser(request, response);
+      if (!user) return;
+      sendJson(response, 200, { posts: listAdminPosts() });
+      return;
+    }
+
+    if (request.method === 'PATCH' && url.pathname.startsWith('/api/v1/admin/posts/') && url.pathname.endsWith('/visibility')) {
+      const user = requireAdminUser(request, response);
+      if (!user) return;
+      const postId = decodeURIComponent(url.pathname.replace('/api/v1/admin/posts/', '').replace('/visibility', ''));
+      const { hidden } = await readBody(request);
+      const result = setPostHidden(postId, Boolean(hidden));
+      if (result.error) { sendError(response, result.error.status, result.error.message); return; }
+      await auditLog({ actorUserId: user.id, action: hidden ? 'admin.post_hidden' : 'admin.post_shown', entityType: 'post', entityId: postId });
+      sendJson(response, 200, result);
+      return;
+    }
+
+    if (request.method === 'DELETE' && url.pathname.startsWith('/api/v1/admin/posts/')) {
+      const user = requireAdminUser(request, response);
+      if (!user) return;
+      const postId = decodeURIComponent(url.pathname.replace('/api/v1/admin/posts/', ''));
+      const result = deletePostAdmin(postId);
+      if (result.error) { sendError(response, result.error.status, result.error.message); return; }
+      await auditLog({ actorUserId: user.id, action: 'admin.post_deleted', entityType: 'post', entityId: postId });
+      sendJson(response, 200, result);
       return;
     }
 

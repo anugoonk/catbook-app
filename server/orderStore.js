@@ -1,5 +1,9 @@
+import QRCode from 'qrcode';
 import { getCart } from './cartStore.js';
 import { readDatabase, withDatabase } from './database.js';
+import { buildPromptPayPayload } from './promptpay.js';
+
+const PROMPTPAY_NUMBER = process.env.CATBOOK_PROMPTPAY_NUMBER || '0812345678';
 
 const SHIPPING_FEE = 0;
 const ALLOWED_PAYMENTS = new Set(['promptpay', 'card', 'bank_transfer', 'cod']);
@@ -43,23 +47,34 @@ const nextId = (prefix) => {
   return `${prefix}-${stamp}${rand}`;
 };
 
-const buildPaymentInstruction = (method, orderId, amount, now) => {
+const buildPaymentInstruction = async (method, orderId, amount, now) => {
   if (method === 'promptpay') {
+    const payload = buildPromptPayPayload(PROMPTPAY_NUMBER, amount);
+    const qrDataUrl = await QRCode.toDataURL(payload, {
+      errorCorrectionLevel: 'M',
+      margin: 2,
+      width: 280,
+      color: { dark: '#000000', light: '#ffffff' },
+    });
     return {
-      type: 'promptpay_mock',
+      type: 'promptpay',
       referenceNo: `PP-${orderId}`,
-      qrPayload: `PROMPTPAY|CATBOOK|${orderId}|${amount}`,
-      qrLabel: `Mock PromptPay QR for ${amount} THB`,
+      promptpayNumber: PROMPTPAY_NUMBER,
+      qrPayload: payload,
+      qrDataUrl,
+      amount,
       expiresAt: new Date(new Date(now).getTime() + 15 * 60 * 1000).toISOString(),
     };
   }
 
   if (method === 'bank_transfer') {
     return {
-      type: 'bank_transfer_mock',
+      type: 'bank_transfer',
       referenceNo: `BT-${orderId}`,
-      bankName: 'CatBook Demo Bank',
+      bankName: 'ธนาคารกสิกรไทย (KBANK)',
       accountNo: '000-0-00000-0',
+      accountName: 'CatBook Shop Co., Ltd.',
+      amount,
       expiresAt: new Date(new Date(now).getTime() + 24 * 60 * 60 * 1000).toISOString(),
     };
   }
@@ -105,7 +120,7 @@ export const createOrderFromCart = async (user, payload = {}) => {
     return { error: { status: 400, message: 'Unsupported payment method' } };
   }
 
-  return withDatabase((database) => {
+  return withDatabase(async (database) => {
     const cartItems = database.carts[user.id] || [];
     const hydratedItems = cartItems
       .map(({ productId, qty }) => {
@@ -184,7 +199,7 @@ export const createOrderFromCart = async (user, payload = {}) => {
 
     database.orders[user.id] = [order, ...getUserOrders(database, user.id)];
     database.carts[user.id] = [];
-    order.paymentInstruction = buildPaymentInstruction(payment, order.id, order.total, now);
+    order.paymentInstruction = await buildPaymentInstruction(payment, order.id, order.total, now);
 
     database.payments.push({
       id: nextId('PAY'),
@@ -301,7 +316,7 @@ export const refundPayment = async (orderId, payload = {}, actor = null) =>
 const updatePaymentState = async (orderId, status, payload = {}, actor = null) => {
   if (!ALLOWED_PAYMENT_STATUSES.has(status)) return { error: { status: 400, message: 'Unsupported payment status' } };
 
-  return withDatabase((database) => {
+  return withDatabase(async (database) => {
     const order = findOrderRecord(database, orderId);
     if (!order) return { error: { status: 404, message: 'Order not found' } };
 
@@ -314,7 +329,7 @@ const updatePaymentState = async (orderId, status, payload = {}, actor = null) =
         method: order.payment,
         amount: order.total,
         gatewayRef: '',
-        instruction: buildPaymentInstruction(order.payment, order.id, order.total, now),
+        instruction: await buildPaymentInstruction(order.payment, order.id, order.total, now),
         createdAt: now,
       };
       database.payments.push(payment);

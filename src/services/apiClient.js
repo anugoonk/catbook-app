@@ -65,3 +65,20 @@ export const api = {
   patch: (path, body, options) => apiRequest(path, { ...options, method: 'PATCH', body }),
   delete: (path, options) => apiRequest(path, { ...options, method: 'DELETE' }),
 };
+
+export const uploadFile = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch(`${getApiBaseUrl()}/uploads`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}) },
+    body: formData,
+  });
+  const payload = await parseResponse(response);
+  if (payload?.csrfToken) setCsrfToken(payload.csrfToken);
+  if (!response.ok) {
+    throw new ApiError(payload?.error?.message || 'Upload failed', { status: response.status, payload });
+  }
+  return payload;
+};

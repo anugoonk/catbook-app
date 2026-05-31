@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Users, Store, Heart, Cat, AlertTriangle, Languages, Package } from 'lucide-react';
+import { Home, Users, Store, Heart, Cat, AlertTriangle, Languages, Package, ShoppingBag } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 
 const STATIC_MENU = [
@@ -17,9 +17,12 @@ const LeftSidebar = () => {
   const { pathname } = useLocation();
   const { currentUser, setViewedCat } = useUser();
 
+  const isSeller = currentUser?.role === 'SELLER' || currentUser?.isAdmin;
+
   const menuItems = [
     { path: '/profile', icon: Cat, label: currentUser.activeCat.name, img: currentUser.activeCat.avatar },
     ...STATIC_MENU,
+    ...(isSeller ? [{ path: '/seller', icon: ShoppingBag, label: 'ร้านค้าของฉัน' }] : []),
   ];
 
   const handleNav = (path) => {

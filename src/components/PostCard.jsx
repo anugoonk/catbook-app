@@ -1,12 +1,13 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Share2, MoreHorizontal, Globe, SendHorizontal, PawPrint, Link2, X, Repeat2 } from 'lucide-react';
+import { MessageCircle, Share2, MoreHorizontal, Globe, SendHorizontal, PawPrint, Link2, X, Repeat2, Trash2 } from 'lucide-react';
 import PawIcon from './PawIcon';
 import { useUser } from '../context/UserContext';
 import { useNotifications } from '../context/NotificationContext';
 import { translateToMeow } from '../utils/meowTranslator';
 import { mockUsers } from '../data/mockData';
 import MentionText from './MentionText';
+import { socialApi } from '../services/socialApi';
 
 const REACTIONS = [
   { id: 'paw',   emoji: '🐾', label: 'ส่งอุ้งเท้า', color: 'text-[#4267B2]' },
@@ -78,24 +79,27 @@ const ImageGrid = ({ images }) => {
   );
 };
 
-const PostCard = ({ post }) => {
+const PostCard = ({ post, onDeleted }) => {
   const { currentUser, setViewedCat } = useUser();
   const { addNotification } = useNotifications();
   const navigate = useNavigate();
 
   const goToProfile = (cat) => { setViewedCat(cat); navigate('/profile'); };
 
-  const [reaction, setReaction] = useState(post.isLiked ? 'paw' : null);
-  const [likeCount, setLikeCount] = useState(post.likes);
+  const [reaction, setReaction] = useState(post.myReaction ?? (post.isLiked ? 'paw' : null));
+  const [likeCount, setLikeCount] = useState(post.likeCount ?? post.likes ?? 0);
   const [animKey, setAnimKey] = useState(0);
   const [showReactions, setShowReactions] = useState(false);
-  const [userComments, setUserComments] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [commentsLoaded, setCommentsLoaded] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [showComments, setShowComments] = useState(false);
+  const [commentCount, setCommentCount] = useState(post.commentCount ?? post.comments ?? 0);
   const [meowMode, setMeowMode] = useState(false);
-  const [shareCount, setShareCount] = useState(post.shares ?? 0);
+  const [shareCount, setShareCount] = useState(post.shareCount ?? post.shares ?? 0);
   const [toastMsg, setToastMsg] = useState('');
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [mentionQuery, setMentionQuery] = useState(null);
   const [mentionStart, setMentionStart] = useState(0);
   const hoverTimerRef = useRef(null);
@@ -110,10 +114,7 @@ const PostCard = ({ post }) => {
     : [];
 
   const currentReaction = REACTIONS.find(r => r.id === reaction) ?? null;
-
-  const mockComments = post.commentsList || [];
-  const totalComments = post.comments + userComments.length;
-  const allComments = [...mockComments, ...userComments];
+  const isOwnPost = post.userId === currentUser.id;
 
   const showToast = (msg) => {
     setToastMsg(msg);
@@ -121,28 +122,42 @@ const PostCard = ({ post }) => {
   };
 
   /* ── Reaction handlers ── */
-  const handleLikeClick = () => {
+  const handleLikeClick = async () => {
+    const prev = reaction;
+    const prevCount = likeCount;
     if (reaction) {
-      setLikeCount(prev => prev - 1);
       setReaction(null);
+      setLikeCount(c => c - 1);
+      setShowReactions(false);
+      try { await socialApi.removeReaction(post.id); }
+      catch { setReaction(prev); setLikeCount(prevCount); }
     } else {
       setAnimKey(k => k + 1);
-      setLikeCount(prev => prev + 1);
       setReaction('paw');
+      setLikeCount(c => c + 1);
+      setShowReactions(false);
+      try { await socialApi.reactToPost(post.id, 'paw'); }
+      catch { setReaction(null); setLikeCount(prevCount); }
     }
-    setShowReactions(false);
   };
 
-  const selectReaction = (id) => {
+  const selectReaction = async (id) => {
+    const prev = reaction;
+    const prevCount = likeCount;
     if (reaction === id) {
-      setLikeCount(prev => prev - 1);
       setReaction(null);
+      setLikeCount(c => c - 1);
+      setShowReactions(false);
+      try { await socialApi.removeReaction(post.id); }
+      catch { setReaction(prev); setLikeCount(prevCount); }
     } else {
-      if (!reaction) setLikeCount(prev => prev + 1);
+      if (!reaction) setLikeCount(c => c + 1);
       setAnimKey(k => k + 1);
       setReaction(id);
+      setShowReactions(false);
+      try { await socialApi.reactToPost(post.id, id); }
+      catch { setReaction(prev); setLikeCount(prevCount); }
     }
-    setShowReactions(false);
   };
 
   const handleMouseEnterLike = () => {
@@ -154,10 +169,19 @@ const PostCard = ({ post }) => {
   };
 
   /* ── Comment handlers ── */
-  const toggleComments = () => {
+  const toggleComments = async () => {
     const next = !showComments;
     setShowComments(next);
-    if (next) setTimeout(() => inputRef.current?.focus(), 0);
+    if (next) {
+      setTimeout(() => inputRef.current?.focus(), 0);
+      if (!commentsLoaded) {
+        try {
+          const data = await socialApi.listComments(post.id);
+          setComments(data.comments || []);
+        } catch { /* show empty */ }
+        setCommentsLoaded(true);
+      }
+    }
   };
 
   const handleCommentChange = (e) => {
@@ -190,14 +214,23 @@ const PostCard = ({ post }) => {
     }, 0);
   };
 
-  const submitComment = () => {
+  const submitComment = async () => {
     const raw = commentText.trim();
     if (!raw) return;
     const text = meowMode ? translateToMeow(raw) : raw;
-    setUserComments(prev => [
-      ...prev,
-      { id: Date.now(), name: currentUser.activeCat.name, avatar: currentUser.activeCat.avatar, text, time: 'เมื่อกี้', meow: meowMode },
-    ]);
+    const optimistic = { id: `tmp-${Date.now()}`, name: currentUser.activeCat.name, avatar: currentUser.activeCat.avatar, text, time: 'เมื่อกี้นี้', meow: meowMode, isOwn: true };
+    setComments(prev => [...prev, optimistic]);
+    setCommentCount(c => c + 1);
+    setCommentsLoaded(true);
+    setCommentText('');
+    setMentionQuery(null);
+    try {
+      const data = await socialApi.addComment(post.id, { text, meow: meowMode });
+      setComments(prev => prev.map(c => c.id === optimistic.id ? data.comment : c));
+    } catch {
+      setComments(prev => prev.filter(c => c.id !== optimistic.id));
+      setCommentCount(c => c - 1);
+    }
     [...raw.matchAll(/@(\S+)/g)].forEach(([, name]) => {
       if (mentionableCats.find(c => c.name === name)) {
         addNotification({
@@ -207,8 +240,6 @@ const PostCard = ({ post }) => {
         });
       }
     });
-    setCommentText('');
-    setMentionQuery(null);
   };
 
   const handleKeyDown = (e) => {
@@ -272,9 +303,32 @@ const PostCard = ({ post }) => {
               </p>
             </div>
           </div>
-          <button className="text-[#65676B] hover:bg-[#f0f2f5] p-2 rounded-full transition-colors shrink-0 ml-1">
-            <MoreHorizontal className="w-5 h-5" />
-          </button>
+          <div className="relative shrink-0 ml-1">
+            <button onClick={() => setShowMenu(m => !m)} className="text-[#65676B] hover:bg-[#f0f2f5] p-2 rounded-full transition-colors">
+              <MoreHorizontal className="w-5 h-5" />
+            </button>
+            {showMenu && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-[#dddfe2] rounded-xl shadow-lg z-30 min-w-[160px] overflow-hidden">
+                {isOwnPost && (
+                  <button
+                    onClick={async () => {
+                      setShowMenu(false);
+                      try {
+                        await socialApi.deletePost(post.id);
+                        onDeleted?.(post.id);
+                      } catch { /* ignore */ }
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" /> ลบโพสต์
+                  </button>
+                )}
+                <button onClick={() => setShowMenu(false)} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#65676B] hover:bg-[#f0f2f5] transition-colors">
+                  <X className="w-4 h-4" /> ปิด
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Content */}
@@ -298,7 +352,7 @@ const PostCard = ({ post }) => {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={toggleComments} className="hover:underline">
-              {totalComments} คอมเมนต์
+              {commentCount} คอมเมนต์
             </button>
             {shareCount > 0 && (
               <>
@@ -383,10 +437,10 @@ const PostCard = ({ post }) => {
         {/* Comments section */}
         {showComments && (
           <div className="px-4 pb-4 border-t border-[#dddfe2] pt-3 space-y-3">
-            {allComments.length > 0 && (
+            {comments.length > 0 && (
               <div className="space-y-3">
-                {allComments.map(comment => (
-                  <CommentItem key={comment.id} comment={comment} isOwn={comment.name === currentUser.activeCat.name} />
+                {comments.map(comment => (
+                  <CommentItem key={comment.id} comment={comment} isOwn={comment.isOwn} />
                 ))}
               </div>
             )}
