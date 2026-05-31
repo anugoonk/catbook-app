@@ -105,9 +105,9 @@ const PostCard = ({ post, onDeleted }) => {
   const inputRef = useRef(null);
   const cursorRef = useRef(0);
 
-  const mentionableCats = mockUsers
-    .filter(u => u.activeCat.id !== currentUser.activeCat.id)
-    .map(u => u.activeCat);
+  const mentionableCats = currentUser
+    ? mockUsers.filter(u => u.activeCat.id !== currentUser.activeCat.id).map(u => u.activeCat)
+    : [];
   const mentionFiltered = mentionQuery !== null
     ? mentionableCats.filter(c => c.name.toLowerCase().includes(mentionQuery.toLowerCase()))
     : [];
