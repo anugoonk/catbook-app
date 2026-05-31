@@ -74,6 +74,7 @@ export const adminApi = {
   setUserStatus: (userId, status) => api.patch(`/admin/users/${userId}/status`, { status }),
   deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
   lostCats: () => api.get('/admin/lostcats'),
+  updateLostCatStatus: (id, status) => api.patch(`/admin/lostcats/${id}`, { status }),
   deleteLostCat: (id) => api.delete(`/admin/lostcats/${id}`),
   activity: () => api.get('/admin/activity'),
   posts: () => api.get('/admin/posts'),

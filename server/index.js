@@ -6,7 +6,7 @@ import { cancelAdminOrder, createOrderFromCart, getOrder, listAllOrders, listOrd
 import { backupDatabase, cleanExpiredSessions, createSession, createUser, db, deleteSession, getDatabaseHealth, getSession, readDatabase, removeUser, setUserStatus, updateUserActiveCat, withDatabase } from './database.js';
 import { parseUpload, serveUpload } from './uploadStore.js';
 import { createComment, createPost, deletePost, deletePostAdmin, listAdminPosts, listComments, listPosts, removeReaction, seedMockPosts, setPostHidden, toggleFollow, upsertReaction } from './socialStore.js';
-import { createLostCat, deleteLostCat, listLostCats, seedLostCats } from './lostCatStore.js';
+import { createLostCat, deleteLostCat, listLostCats, seedLostCats, updateLostCatStatus } from './lostCatStore.js';
 import { findProductBySlug, listProducts } from './productRepository.js';
 import { adjustAdminStock, archiveAdminProduct, createAdminProduct, listAdminProducts, updateAdminProduct } from './adminProductRepository.js';
 import { adjustSellerStock, archiveSellerProduct, createSellerProduct, listSellerProducts, updateSellerProduct } from './sellerProductRepository.js';
@@ -923,6 +923,17 @@ const server = createServer(async (request, response) => {
       const user = requireAdminUser(request, response);
       if (!user) return;
       sendJson(response, 200, { lostCats: listLostCats('all') });
+      return;
+    }
+
+    if (request.method === 'PATCH' && url.pathname.startsWith('/api/v1/admin/lostcats/')) {
+      const user = requireAdminUser(request, response);
+      if (!user) return;
+      const id = decodeURIComponent(url.pathname.replace('/api/v1/admin/lostcats/', ''));
+      const { status } = await readBody(request);
+      const result = updateLostCatStatus(id, status);
+      if (result.error) { sendJson(response, result.error.status, result.error); return; }
+      sendJson(response, 200, result);
       return;
     }
 

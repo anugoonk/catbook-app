@@ -42,6 +42,15 @@ export const createLostCat = (userId, payload) => {
   return { lostCat: rowToLostCat(db.prepare('SELECT * FROM lost_cats WHERE id = ?').get(id)) };
 };
 
+export const updateLostCatStatus = (id, status) => {
+  const allowed = new Set(['active', 'found', 'closed']);
+  if (!allowed.has(status)) return { error: { status: 400, message: 'Invalid status' } };
+  const row = db.prepare('SELECT id FROM lost_cats WHERE id = ?').get(id);
+  if (!row) return { error: { status: 404, message: 'Report not found' } };
+  db.prepare('UPDATE lost_cats SET status = ? WHERE id = ?').run(status, id);
+  return { lostCat: rowToLostCat(db.prepare('SELECT * FROM lost_cats WHERE id = ?').get(id)) };
+};
+
 export const deleteLostCat = (id) => {
   const row = db.prepare('SELECT id FROM lost_cats WHERE id = ?').get(id);
   if (!row) return { error: { status: 404, message: 'Report not found' } };

@@ -263,6 +263,8 @@ const AdminDashboardPage = () => {
 
   /* lost cats */
   const [lostCats, setLostCats] = useState([]);
+  const [lcSearch, setLcSearch] = useState('');
+  const [lcStatus, setLcStatus] = useState('all');
   /* activity */
   const [activities, setActivities] = useState([]);
 
@@ -528,6 +530,15 @@ const AdminDashboardPage = () => {
     const updated = await action(orderId, { gatewayRef: `MANUAL-${Date.now()}` });
     showToast(updated ? message : 'อัปเดต payment ไม่สำเร็จ');
   };
+  const markFound = async (id, currentStatus) => {
+    const nextStatus = currentStatus === 'found' ? 'active' : 'found';
+    try {
+      const res = await adminApi.updateLostCatStatus(id, nextStatus);
+      setLostCats(p => p.map(c => c.id === id ? res.lostCat : c));
+      showToast(nextStatus === 'found' ? '✅ บันทึกว่าพบแล้ว' : '🔄 เปลี่ยนเป็นยังหายอยู่');
+    } catch { showToast('อัปเดตสถานะไม่สำเร็จ'); }
+  };
+
   const deleteLost = async (id) => {
     try {
       await adminApi.deleteLostCat(id);
@@ -595,6 +606,16 @@ const AdminDashboardPage = () => {
     });
   }, [orderPayment, orderSearch, orderShipping, orderStatus, orders]);
   const totalRevenue   = market.reduce((s, m) => s + (m.price * (m.stock || 0)), 0);
+  const lcActiveCount  = lostCats.filter(c => c.status === 'active').length;
+  const lcFoundCount   = lostCats.filter(c => c.status === 'found').length;
+  const filteredLC     = useMemo(() => lostCats.filter(c => {
+    if (lcStatus !== 'all' && c.status !== lcStatus) return false;
+    if (lcSearch) {
+      const q = lcSearch.toLowerCase();
+      return c.name.toLowerCase().includes(q) || c.location.toLowerCase().includes(q);
+    }
+    return true;
+  }), [lostCats, lcStatus, lcSearch]);
 
   const chartData = posts.map(p => ({ name: p.cat?.name || '—', avatar: p.cat?.avatar || '', likes: p.likeCount || 0 }));
   const maxLikes  = Math.max(1, ...chartData.map(d => d.likes));
@@ -1322,61 +1343,133 @@ const AdminDashboardPage = () => {
 
         {/* ─── Lost Cats ─── */}
         {tab === 'lostcats' && (
-          <div>
-            <h1 className="text-[22px] font-bold text-[#050505] mb-6">
-              จัดการประกาศแมวหาย <span className="text-gray-400 text-[16px] font-normal">({lostCats.length} ประกาศ)</span>
-            </h1>
-
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <Th>รูป</Th>
-                    <Th>ชื่อแมว</Th>
-                    <Th>หายล่าสุด</Th>
-                    <Th>สถานที่</Th>
-                    <Th center>รางวัล (฿)</Th>
-                    <Th>จัดการ</Th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {lostCats.map(cat => (
-                    <tr key={cat.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <img src={cat.img} className="w-10 h-10 rounded-lg object-cover" alt="" />
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-[#050505] text-[14px]">{cat.name}</td>
-                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-[13px]">{cat.lastSeen}</td>
-                      <td className="px-4 py-3 text-gray-500 text-[13px]">{cat.location}</td>
-                      <td className="px-4 py-3 text-center font-semibold text-[14px]">
-                        {cat.reward > 0
-                          ? <span className="text-yellow-600">{cat.reward.toLocaleString()}</span>
-                          : <span className="text-gray-300">—</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        {isDeleting('lost', cat.id) ? (
-                          <ConfirmPair onConfirm={() => deleteLost(cat.id)} onCancel={() => setConfirmDelete(null)} />
-                        ) : (
-                          <button
-                            onClick={() => setConfirmDelete({ type: 'lost', id: cat.id })}
-                            className="text-[12px] font-semibold px-2.5 py-1 rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
-                          >
-                            ลบประกาศ
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {lostCats.length === 0 && (
-                <div className="text-center py-16">
-                  <p className="text-4xl mb-2">🎉</p>
-                  <p className="text-gray-400 text-sm font-medium">No lost cat reports.</p>
+            <div>
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                <div>
+                  <h1 className="text-[22px] font-bold text-[#050505]">ประกาศแมวหาย</h1>
+                  <p className="text-[13px] text-gray-400 mt-0.5">ทั้งหมด {lostCats.length} ประกาศ</p>
                 </div>
-              )}
+                <button onClick={loadLostCats} className="self-start sm:self-auto bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-[13px] font-semibold text-gray-600 hover:bg-gray-50">
+                  รีเฟรช
+                </button>
+              </div>
+
+              {/* Summary cards */}
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                {[
+                  { label: 'ทั้งหมด', value: lostCats.length, color: 'bg-gray-50 border-gray-200', val: 'text-gray-800', emoji: '📢' },
+                  { label: 'กำลังหา', value: lcActiveCount,   color: 'bg-red-50 border-red-100',    val: 'text-red-600',   emoji: '🔴' },
+                  { label: 'พบแล้ว',  value: lcFoundCount,    color: 'bg-green-50 border-green-100', val: 'text-green-600', emoji: '✅' },
+                ].map(s => (
+                  <div key={s.label} className={`rounded-xl border p-4 ${s.color}`}>
+                    <p className="text-[11px] text-gray-500 font-semibold uppercase tracking-wide">{s.emoji} {s.label}</p>
+                    <p className={`text-[28px] font-bold leading-none mt-1 ${s.val}`}>{s.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Search + filter */}
+              <div className="bg-white rounded-xl border border-gray-200 p-3 mb-4 flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                  <input
+                    value={lcSearch}
+                    onChange={e => setLcSearch(e.target.value)}
+                    placeholder="ค้นหาชื่อแมว หรือสถานที่..."
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-3 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-[#4267B2]/25"
+                  />
+                </div>
+                <select
+                  value={lcStatus}
+                  onChange={e => setLcStatus(e.target.value)}
+                  className="bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-gray-700 outline-none"
+                >
+                  <option value="all">ทุกสถานะ</option>
+                  <option value="active">กำลังหา</option>
+                  <option value="found">พบแล้ว</option>
+                </select>
+              </div>
+
+              {/* Table */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
+                <table className="w-full min-w-[640px] text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <Th>แมว</Th>
+                      <Th>หายล่าสุด</Th>
+                      <Th>สถานที่</Th>
+                      <Th center>รางวัล</Th>
+                      <Th center>สถานะ</Th>
+                      <Th>จัดการ</Th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredLC.map(cat => {
+                      const isFound = cat.status === 'found';
+                      return (
+                        <tr key={cat.id} className={`transition-colors ${isFound ? 'bg-green-50' : 'hover:bg-gray-50'}`}>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2.5">
+                              {cat.img ? (
+                                <img src={cat.img} className={`w-11 h-11 rounded-xl object-cover shrink-0 ${isFound ? 'opacity-60 grayscale' : ''}`} alt="" />
+                              ) : (
+                                <div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center text-xl shrink-0">🐱</div>
+                              )}
+                              <div>
+                                <p className={`font-semibold text-[14px] leading-tight ${isFound ? 'text-gray-400 line-through' : 'text-[#050505]'}`}>
+                                  {cat.name}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-[13px]">{cat.lastSeen}</td>
+                          <td className="px-4 py-3 text-gray-500 text-[13px] max-w-[160px] truncate">{cat.location}</td>
+                          <td className="px-4 py-3 text-center font-semibold text-[13px]">
+                            {cat.reward > 0
+                              ? <span className="text-amber-600">฿{cat.reward.toLocaleString()}</span>
+                              : <span className="text-gray-300">—</span>}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${isFound ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                              {isFound ? '✅ พบแล้ว' : '🔴 กำลังหา'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {isDeleting('lost', cat.id) ? (
+                              <ConfirmPair onConfirm={() => deleteLost(cat.id)} onCancel={() => setConfirmDelete(null)} />
+                            ) : (
+                              <div className="flex gap-1.5 flex-wrap">
+                                <button
+                                  onClick={() => markFound(cat.id, cat.status)}
+                                  className={`text-[12px] font-semibold px-2.5 py-1 rounded-md transition-colors ${isFound ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
+                                >
+                                  {isFound ? 'ยังหายอยู่' : 'พบแล้ว'}
+                                </button>
+                                <button
+                                  onClick={() => setConfirmDelete({ type: 'lost', id: cat.id })}
+                                  className="text-[12px] font-semibold px-2.5 py-1 rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                                >
+                                  ลบ
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {filteredLC.length === 0 && (
+                  <div className="text-center py-16">
+                    <p className="text-4xl mb-2">{lostCats.length === 0 ? '🎉' : '🐾'}</p>
+                    <p className="text-gray-400 text-sm font-medium">
+                      {lostCats.length === 0 ? 'ไม่มีประกาศแมวหาย' : 'ไม่พบประกาศตามเงื่อนไข'}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
         )}
 
       </div>
