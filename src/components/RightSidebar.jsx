@@ -11,7 +11,7 @@ const RightSidebar = ({ onOpenChat }) => {
 
   const friends = mockUsers
     .filter(u => u.activeCat.id !== currentUser.activeCat.id)
-    .map(u => u.activeCat);
+    .map(u => ({ ...u.activeCat, userId: u.id }));
 
   const goToProfile = (cat) => { setViewedCat(cat); navigate('/profile'); };
 

@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Send, Smile, Sticker, ImageIcon, CornerUpLeft, Trash2 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
+import { chatApi } from '../services/chatApi.js';
 
 const INIT_MESSAGES = {
   c2: [{ id: 1, from: 'c2', text: 'เมี๊ยววว ทำอะไรอยู่คะ? 🐾', time: 'เมื่อกี้', reactions: {} }],
@@ -170,56 +171,90 @@ const Bubble = ({ msg, cat, isLastMy, isRead, onReact, onReply, onDelete, hovere
   );
 };
 
+// แปลง server message → UI format
+const toUiMsg = (m, myId) => ({
+  id: m.id,
+  from: m.from_id === myId ? 'me' : m.from_id,
+  text: m.text,
+  time: new Date(m.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+  reactions: {},
+});
+
 /* ── ChatWindow ── */
 const ChatWindow = ({ cat, onClose }) => {
   const { currentUser } = useUser();
-  const [messages, setMessages] = useState(
-    () => INIT_MESSAGES[cat.id] ?? [makeMsg(cat.id, 'เมี๊ยววว! 🐾')]
-  );
+  const partnerId = cat.userId; // ส่งมาจาก RightSidebar ด้วย userId
+
+  const [messages, setMessages] = useState([]);
   const [input, setInput]         = useState('');
-  const [isTyping, setIsTyping]   = useState(false);
-  const [readId, setReadId]       = useState(null);
+  const [sending, setSending]     = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [showSticker, setShowSticker] = useState(false);
   const [replyTo, setReplyTo]     = useState(null);
   const [hoveredId, setHoveredId] = useState(null);
   const [reactionTarget, setReactionTarget] = useState(null);
 
-  const bottomRef = useRef(null);
-  const inputRef  = useRef(null);
-  const fileRef   = useRef(null);
+  const bottomRef  = useRef(null);
+  const inputRef   = useRef(null);
+  const fileRef    = useRef(null);
+  const latestRef  = useRef(null); // created_at ของข้อความล่าสุด
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+  }, [messages]);
 
-  const triggerAutoReply = (sentId) => {
-    setTimeout(() => setReadId(sentId), 900);
-    setTimeout(() => setIsTyping(true), 700);
-    setTimeout(() => {
-      setIsTyping(false);
-      setMessages(prev => [...prev, makeMsg(cat.id, getAutoReply(cat.id))]);
-    }, 1600 + Math.random() * 1200);
-  };
+  // โหลดข้อความครั้งแรก
+  useEffect(() => {
+    if (!partnerId) return;
+    chatApi.getMessages(partnerId).then(({ messages: msgs }) => {
+      const ui = msgs.map(m => toUiMsg(m, currentUser.id));
+      setMessages(ui);
+      if (msgs.length) latestRef.current = msgs[msgs.length - 1].created_at;
+    }).catch(() => {});
+  }, [partnerId, currentUser.id]);
 
-  const send = (text) => {
+  // Polling ทุก 3 วิ
+  const poll = useCallback(() => {
+    if (!partnerId) return;
+    chatApi.getMessages(partnerId, latestRef.current).then(({ messages: newMsgs }) => {
+      if (!newMsgs.length) return;
+      const ui = newMsgs.map(m => toUiMsg(m, currentUser.id));
+      setMessages(prev => [...prev, ...ui]);
+      latestRef.current = newMsgs[newMsgs.length - 1].created_at;
+    }).catch(() => {});
+  }, [partnerId, currentUser.id]);
+
+  useEffect(() => {
+    const id = setInterval(poll, 3000);
+    return () => clearInterval(id);
+  }, [poll]);
+
+  const send = async (text) => {
     const trimmed = (text ?? input).trim();
-    if (!trimmed) return;
-    const msg = makeMsg('me', trimmed, { replyTo });
-    setMessages(prev => [...prev, msg]);
+    if (!trimmed || sending || !partnerId) return;
+    setSending(true);
     setInput('');
     setShowEmoji(false);
     setShowSticker(false);
     setReplyTo(null);
-    triggerAutoReply(msg.id);
+    try {
+      const { message: m } = await chatApi.sendMessage(partnerId, trimmed);
+      const ui = toUiMsg(m, currentUser.id);
+      setMessages(prev => [...prev, ui]);
+      latestRef.current = m.created_at;
+    } catch {
+      setInput(trimmed); // คืน input ถ้า error
+    } finally {
+      setSending(false);
+    }
   };
 
   const sendImage = (file) => {
+    // รูปภาพยังเป็น local-only (ไม่ได้ upload ไป server)
     const url = URL.createObjectURL(file);
     const msg = makeMsg('me', '', { type: 'image', img: url, replyTo });
     setMessages(prev => [...prev, msg]);
     setReplyTo(null);
-    triggerAutoReply(msg.id);
   };
 
   const insertEmoji = (emoji) => {
@@ -249,6 +284,7 @@ const ChatWindow = ({ cat, onClose }) => {
   };
 
   const lastMyMsgId = [...messages].reverse().find(m => m.from === 'me')?.id;
+  const isTyping = false; // ไม่มี typing indicator แบบ real-time
 
   return (
     <div className="fixed bottom-0 right-10 z-[100] w-[328px] rounded-t-xl shadow-2xl flex flex-col overflow-hidden border border-[#dddfe2] bg-white">
@@ -368,7 +404,7 @@ const ChatWindow = ({ cat, onClose }) => {
           />
           <button
             onClick={() => send()}
-            disabled={!input.trim()}
+            disabled={!input.trim() || sending}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-[#4267B2] disabled:text-[#bcc0c4] transition-colors"
           >
             <Send className="w-3.5 h-3.5" />

@@ -7,6 +7,7 @@ import { backupDatabase, cleanExpiredSessions, createSession, createUser, db, de
 import { parseUpload, serveUpload } from './uploadStore.js';
 import { createComment, createPost, deletePost, deletePostAdmin, listAdminPosts, listComments, listPosts, removeReaction, seedMockPosts, setPostHidden, toggleFollow, upsertReaction } from './socialStore.js';
 import { createLostCat, deleteLostCat, listLostCats, seedLostCats, updateLostCatStatus } from './lostCatStore.js';
+import { getConversation, sendMessage, getInboxPreviews } from './messageStore.js';
 import { findProductBySlug, listProducts } from './productRepository.js';
 import { adjustAdminStock, archiveAdminProduct, createAdminProduct, listAdminProducts, updateAdminProduct } from './adminProductRepository.js';
 import { adjustSellerStock, archiveSellerProduct, createSellerProduct, listSellerProducts, updateSellerProduct } from './sellerProductRepository.js';
@@ -1058,6 +1059,36 @@ const server = createServer(async (request, response) => {
       await auditLog({ actorUserId: user.id, action: 'admin.post_deleted', entityType: 'post', entityId: postId });
       sendJson(response, 200, result);
       return;
+    }
+
+    // ── Messages ───────────────────────────────────────────────────
+    if (url.pathname === '/api/v1/messages/inbox') {
+      const user = requireSessionUser(request, response);
+      if (!user) return;
+      sendJson(response, 200, { previews: getInboxPreviews(user.id) });
+      return;
+    }
+
+    if (url.pathname.startsWith('/api/v1/messages/')) {
+      const user = requireSessionUser(request, response);
+      if (!user) return;
+      const partnerId = decodeURIComponent(url.pathname.replace('/api/v1/messages/', ''));
+      if (!partnerId) { sendError(response, 400, 'Missing partner id', 'BAD_REQUEST'); return; }
+
+      if (request.method === 'GET') {
+        const since = url.searchParams.get('since') || null;
+        sendJson(response, 200, { messages: getConversation(user.id, partnerId, since) });
+        return;
+      }
+      if (request.method === 'POST') {
+        const body = await readBody(request);
+        const text = String(body?.text || '').trim();
+        if (!text) { sendError(response, 400, 'Message text required', 'BAD_REQUEST'); return; }
+        if (text.length > 1000) { sendError(response, 400, 'Message too long', 'TOO_LONG'); return; }
+        const msg = sendMessage(user.id, partnerId, text);
+        sendJson(response, 201, { message: msg });
+        return;
+      }
     }
 
     sendError(response, 404, 'Route not found', 'ROUTE_NOT_FOUND');
