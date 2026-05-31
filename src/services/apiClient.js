@@ -50,6 +50,11 @@ export const apiRequest = async (path, options = {}) => {
   if (payload?.csrfToken) setCsrfToken(payload.csrfToken);
 
   if (!response.ok) {
+    // Session หมดอายุหรือ server restart — reload ออกไปหน้า login
+    if (response.status === 401 && !path.includes('/auth/')) {
+      window.location.href = '/login';
+      return;
+    }
     throw new ApiError(payload?.error?.message || payload?.message || 'API request failed', {
       status: response.status,
       payload,
