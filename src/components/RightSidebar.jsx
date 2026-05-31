@@ -7,6 +7,8 @@ const RightSidebar = ({ onOpenChat }) => {
   const navigate = useNavigate();
   const { currentUser, setViewedCat } = useUser();
 
+  if (!currentUser) return null;
+
   const friends = mockUsers
     .filter(u => u.activeCat.id !== currentUser.activeCat.id)
     .map(u => u.activeCat);
