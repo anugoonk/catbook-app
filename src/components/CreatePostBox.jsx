@@ -8,6 +8,8 @@ const CreatePostBox = ({ onAddPost }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [initialPanel, setInitialPanel] = useState(null);
 
+  if (!currentUser) return null;
+
   const openModal = (panel = null) => {
     setInitialPanel(panel);
     setIsModalOpen(true);

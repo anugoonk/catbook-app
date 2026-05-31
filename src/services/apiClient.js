@@ -13,10 +13,10 @@ const getApiBaseUrl = () =>
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || DEFAULT_API_BASE_URL;
 
 let csrfToken = '';
+let sessionActive = false;
 
-export const setCsrfToken = (token) => {
-  csrfToken = token || '';
-};
+export const setCsrfToken = (token) => { csrfToken = token || ''; };
+export const setSessionActive = (v) => { sessionActive = v; };
 
 const parseResponse = async (response) => {
   const text = await response.text();
@@ -50,8 +50,9 @@ export const apiRequest = async (path, options = {}) => {
   if (payload?.csrfToken) setCsrfToken(payload.csrfToken);
 
   if (!response.ok) {
-    // Session หมดอายุหรือ server restart — reload ออกไปหน้า login
-    if (response.status === 401 && !path.includes('/auth/')) {
+    // Session หมดอายุขณะใช้งาน — redirect ไป login (ยกเว้น auth endpoints และ guest)
+    if (response.status === 401 && !path.includes('/auth/') && sessionActive) {
+      sessionActive = false;
       window.location.href = '/login';
       return;
     }

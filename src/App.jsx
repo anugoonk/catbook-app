@@ -12,6 +12,7 @@ import CookieConsent from './components/CookieConsent';
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const TermsPage   = lazy(() => import('./pages/TermsPage'));
 import { authApi } from './services/commerceApi';
+import { setSessionActive } from './services/apiClient';
 import { captureUtmContext, trackMarketingEvent } from './services/marketingTracking';
 import { defaultSeoMeta, setSeoMeta } from './utils/seo';
 
@@ -88,8 +89,9 @@ export default function App() {
     return () => { isMounted = false; };
   }, []);
 
-  const handleLogin = (user) => { setCurrentUser(user); setViewedCat(null); };
+  const handleLogin = (user) => { setCurrentUser(user); setViewedCat(null); setSessionActive(true); };
   const handleLogout = async () => {
+    setSessionActive(false);
     try {
       await authApi.logout();
     } finally {
