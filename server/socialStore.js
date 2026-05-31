@@ -167,15 +167,69 @@ export const setPostHidden = (postId, hidden) => {
 };
 
 export const seedMockPosts = () => {
-  const count = db.prepare('SELECT COUNT(*) AS cnt FROM posts').get().cnt;
-  if (count > 0) return;
   const seeds = [
-    { id: 'p1', userId: 'u3', content: 'วันนี้แอบนอนในกล่องรองเท้าอีกแล้ว เมี๊ยววว 📦💤', feeling: 'ง่วงนอน', location: 'บ้านอันแสนอบอุ่น', imageUrl: 'https://images.unsplash.com/photo-1513245543132-31f507417b26?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80', ago: 10 * 60000 },
-    { id: 'p2', userId: 'u4', content: 'ทาสซื้ออาหารเม็ดรสใหม่มาให้ ชิมแล้วให้ 10/10 ไปเลยฮะ! 🐟✨', feeling: 'อารมณ์ดี', location: null, imageUrl: null, ago: 2 * 3600000 },
-    { id: 'p3', userId: 'u2', content: 'นั่งรอทาสกลับบ้านเมื่อไหร่จะมาเทข้าววววว 😾', feeling: 'หิวมาก', location: null, imageUrl: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80', ago: 5 * 3600000 },
+    // ── original 3 ──────────────────────────────────────────────────────────
+    { id: 'p1',  userId: 'u3', ago: 10 * 60000,
+      content: 'วันนี้แอบนอนในกล่องรองเท้าอีกแล้ว เมี๊ยววว 📦💤',
+      feeling: 'ง่วงนอน', location: 'บ้านอันแสนอบอุ่น',
+      imageUrl: 'https://images.unsplash.com/photo-1513245543132-31f507417b26?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80' },
+    { id: 'p2',  userId: 'u4', ago: 2 * 3600000,
+      content: 'ทาสซื้ออาหารเม็ดรสใหม่มาให้ ชิมแล้วให้ 10/10 ไปเลยฮะ! 🐟✨',
+      feeling: 'อารมณ์ดี', location: null, imageUrl: null },
+    { id: 'p3',  userId: 'u2', ago: 5 * 3600000,
+      content: 'นั่งรอทาสกลับบ้านเมื่อไหร่จะมาเทข้าววววว 😾',
+      feeling: 'หิวมาก', location: null,
+      imageUrl: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80' },
+
+    // ── new varied posts ─────────────────────────────────────────────────────
+    { id: 'p4',  userId: 'u1', ago: 30 * 60000,
+      content: 'ตรวจสอบระบบ CatBook เรียบร้อยแล้ว ทุกอย่างโอเค ขอกลับไปนอนต่อนะ 🛡️😴',
+      feeling: 'เหนื่อยแต่โอเค', location: 'สำนักงานบอส',
+      imageUrl: null },
+    { id: 'p5',  userId: 'u2', ago: 1.5 * 3600000,
+      content: 'กล่องพัสดุมาส่งแล้ว!! 📦 นี่คือที่นอนของฉัน ทาสอย่าแตะ หากแตะจะโดนข่วน',
+      feeling: 'ดีใจมาก', location: 'หน้าบ้าน',
+      imageUrl: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=600&q=80' },
+    { id: 'p6',  userId: 'u3', ago: 3 * 3600000,
+      content: 'จับจิ้งจกได้ 1 ตัวแล้ววันนี้ 😼🦎 ฝีมือดีขึ้นเรื่อยๆ ทาสควรภูมิใจในตัวฉัน',
+      feeling: 'ภาคภูมิใจ', location: 'ระเบียงหลังบ้าน', imageUrl: null },
+    { id: 'p7',  userId: 'u4', ago: 4 * 3600000,
+      content: 'วิ่งรอบบ้าน 10 รอบตอนตีสาม โดยไม่มีเหตุผล แค่รู้สึกอยากวิ่ง 🏃💨\n\nทาสตกใจมากมาย ฮ่าๆ',
+      feeling: 'ซนมาก', location: null, imageUrl: null },
+    { id: 'p8',  userId: 'u2', ago: 6 * 3600000,
+      content: 'อาบน้ำแล้ววววว 💧😾 ฉุนมากกก ทำไมต้องอาบน้ำด้วย ขนเปียกหมด ชีวิตแย่ที่สุด\n\n#ต่อต้านการอาบน้ำ #แมวโกรธ',
+      feeling: 'โกรธมาก', location: 'ห้องน้ำที่เกลียด',
+      imageUrl: 'https://images.unsplash.com/photo-1596854407944-bf87f6fdd49e?w=600&q=80' },
+    { id: 'p9',  userId: 'u3', ago: 7 * 3600000,
+      content: 'นอนบน laptop ทาสได้สำเร็จ ขัดขวางการทำงานได้อย่างมีประสิทธิภาพ 💻😸\n\nทาสขอพื้นที่คืน แต่ฉันไม่ยอม',
+      feeling: 'พอใจในตัวเอง', location: 'โต๊ะทำงานทาส', imageUrl: null },
+    { id: 'p10', userId: 'u4', ago: 9 * 3600000,
+      content: 'วันนี้ปลาทูน่าอร่อยมากกก 🐟🐟🐟 ให้ 5 ดาวเต็ม ทาสรู้ใจจริงๆ\n\nถ้าพรุ่งนี้ได้อีกจะให้โบนัสยิ้มหนึ่งครั้ง',
+      feeling: 'อิ่มและมีความสุข', location: null,
+      imageUrl: 'https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=600&q=80' },
+    { id: 'p11', userId: 'u1', ago: 11 * 3600000,
+      content: 'ตรวจพบหมาบ้านข้างเดินผ่านหน้าบ้าน 🚨🐕 ส่งเสียงเตือนภัยแล้ว เขตแดนของเมี๊ยวห้ามละเมิด!\n\nป.ล. หมาตัวนั้นดูหวาดกลัวดีมาก',
+      feeling: 'ตื่นตัว', location: 'หน้าต่างชั้น 2', imageUrl: null },
+    { id: 'p12', userId: 'u2', ago: 14 * 3600000,
+      content: 'นอนกลางแดดอุ่นๆ ริมหน้าต่าง ☀️😌 ชีวิตดี ไม่ต้องทำอะไร ทาสทำงานไป ฉันจะนอน\n\nนี่แหละคือชีวิตที่สมบูรณ์แบบ',
+      feeling: 'ผ่อนคลาย', location: 'หน้าต่างแสงแดด',
+      imageUrl: 'https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=600&q=80' },
+    { id: 'p13', userId: 'u3', ago: 18 * 3600000,
+      content: 'ทาสพยายามให้ยา ฉันสู้กลับทุกครั้ง 💊❌ ยังไม่แพ้สักทีเลยนะ ชนะมา 7 รอบติดต่อกัน\n\nทาสไม่มีวันชนะฉันได้หรอก 😼',
+      feeling: 'ภูมิใจมาก', location: null, imageUrl: null },
+    { id: 'p14', userId: 'u4', ago: 22 * 3600000,
+      content: 'เพิ่งค้นพบว่าถ้านอนตรงกลาง sofa ทาสจะไม่มีที่นั่ง 🛋️😂\n\nทดสอบซ้ำ 3 ครั้ง ผลเหมือนเดิมทุกครั้ง งานวิจัยสำเร็จ!',
+      feeling: 'ค้นพบสิ่งใหม่', location: 'โซฟาของฉัน',
+      imageUrl: 'https://images.unsplash.com/photo-1574144611937-0df059b5ef3e?w=600&q=80' },
+    { id: 'p15', userId: 'u1', ago: 26 * 3600000,
+      content: 'ประกาศ: ตั้งแต่วันนี้เป็นต้นไป เวลาให้อาหารทุกวันต้องตรงเวลา ไม่งั้นจะปลุกทาสตี 4 ทุกคืน 😾\n\nลงชื่อ: บอส (ผู้พิทักษ์ตู้เย็น)',
+      feeling: 'จริงจัง', location: 'ห้องประชุมแมว', imageUrl: null },
   ];
+
+  // Insert only missing seed posts (additive, never delete existing)
+  const stmt = db.prepare('INSERT OR IGNORE INTO posts (id, user_id, content, feeling, location, image_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
   for (const s of seeds) {
     const createdAt = new Date(Date.now() - s.ago).toISOString();
-    db.prepare('INSERT OR IGNORE INTO posts (id, user_id, content, feeling, location, image_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(s.id, s.userId, s.content, s.feeling, s.location, s.imageUrl, createdAt);
+    stmt.run(s.id, s.userId, s.content, s.feeling ?? null, s.location ?? null, s.imageUrl ?? null, createdAt);
   }
 };
