@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Plus, Phone, MapPin, Calendar } from 'lucide-react';
 import Toast from '../components/Toast';
 import useToast from '../hooks/useToast';
@@ -70,6 +71,8 @@ const buildLostCats = (users) => {
 
 const LostCatsPage = () => {
   const { currentUser } = useUser();
+  const navigate = useNavigate();
+  const isGuest = !currentUser;
   const [lostCats, setLostCats] = useState(() => buildLostCats(mockUsers));
   const [tipState, setTipState] = useState(
     () => Object.fromEntries(buildLostCats(mockUsers).map(c => [c.id, 'idle']))
@@ -82,9 +85,10 @@ const LostCatsPage = () => {
     const fresh = buildLostCats(mockUsers);
     setLostCats(fresh);
     setTipState(Object.fromEntries(fresh.map(c => [c.id, 'idle'])));
-  }, [currentUser.activeCat.id]);
+  }, [currentUser?.activeCat?.id]);
 
   const handleTip = (cat) => {
+    if (isGuest) { navigate('/login'); return; }
     if (tipState[cat.id] !== 'idle') return;
     setTipState(prev => ({ ...prev, [cat.id]: 'sent' }));
     showSuccessToast('ส่งเบาะแสเรียบร้อย! เจ้าของแมวจะติดต่อกลับหาคุณ');
@@ -108,7 +112,7 @@ const LostCatsPage = () => {
           <p className="text-red-700 text-sm">ช่วยกันตามหาน้องแมวที่หายไป ส่งเบาะแสให้เจ้าของได้เลย</p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => isGuest ? navigate('/login') : setIsModalOpen(true)}
           className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-colors text-sm shrink-0"
         >
           <Plus className="w-4 h-4" />
@@ -119,7 +123,7 @@ const LostCatsPage = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {lostCats.map(cat => {
           const sent = tipState[cat.id] === 'sent';
-          const isOwn = cat.poster.id === currentUser.activeCat.id;
+          const isOwn = currentUser && cat.poster.id === currentUser.activeCat.id;
 
           return (
             <div key={cat.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">

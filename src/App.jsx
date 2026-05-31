@@ -127,9 +127,10 @@ export default function App() {
             />
             <Route path="/privacy" element={lazyElement(PrivacyPage)} />
             <Route path="/terms"   element={lazyElement(TermsPage)} />
-            {/* Public: News Feed เข้าได้โดยไม่ต้อง login */}
+            {/* Public: เข้าได้โดยไม่ต้อง login */}
             <Route element={<MainLayout onLogout={handleLogout} onOpenChat={setActiveChat} />}>
               <Route path="/" element={lazyElement(HomePage)} />
+              <Route path="/lostcats" element={lazyElement(LostCatsPage)} />
             </Route>
 
             {/* Auth required */}

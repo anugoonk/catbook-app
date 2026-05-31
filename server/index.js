@@ -905,8 +905,7 @@ const server = createServer(async (request, response) => {
 
     // ── Lost Cats (public + admin) ────────────────────────────────
     if (request.method === 'GET' && url.pathname === '/api/v1/lostcats') {
-      const user = requireSessionUser(request, response);
-      if (!user) return;
+      // Public endpoint — guests can view lost cat reports
       sendJson(response, 200, { lostCats: listLostCats('active') });
       return;
     }
