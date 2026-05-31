@@ -39,9 +39,28 @@ const HomePage = () => {
       )
     : posts;
 
+  const isGuest = !currentUser;
+
   return (
     <div className="w-full">
-      <CreatePostBox onAddPost={handleAddPost} />
+      {isGuest && (
+        <div className="bg-white border border-[#dddfe2] rounded-xl shadow-sm mb-3 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1">
+            <p className="font-bold text-[#050505] text-[15px]">🐾 ยินดีต้อนรับสู่ CatBook!</p>
+            <p className="text-[13px] text-gray-500 mt-0.5">เข้าสู่ระบบเพื่อโพสต์ แสดงความรู้สึก และพูดคุยกับแมวทั่วไทย</p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <a href="/register" className="px-4 py-2 rounded-lg bg-[#4267B2] text-white font-bold text-sm hover:bg-[#3b5998] transition-colors">
+              สมัครสมาชิก
+            </a>
+            <a href="/login" className="px-4 py-2 rounded-lg border border-[#4267B2] text-[#4267B2] font-bold text-sm hover:bg-blue-50 transition-colors">
+              เข้าสู่ระบบ
+            </a>
+          </div>
+        </div>
+      )}
+
+      {!isGuest && <CreatePostBox onAddPost={handleAddPost} />}
 
       {/* Search bar */}
       <div className="relative mb-3">

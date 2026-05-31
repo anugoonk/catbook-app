@@ -13,7 +13,9 @@ const navItems = [
 const BottomNav = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { setViewedCat } = useUser();
+  const { currentUser, setViewedCat } = useUser();
+
+  if (!currentUser) return null;
 
   const handleNav = (path) => {
     if (path === '/profile') setViewedCat(null);

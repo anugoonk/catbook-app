@@ -17,6 +17,8 @@ const LeftSidebar = () => {
   const { pathname } = useLocation();
   const { currentUser, setViewedCat } = useUser();
 
+  if (!currentUser) return null;
+
   const isSeller = currentUser?.role === 'SELLER' || currentUser?.isAdmin;
 
   const menuItems = [

@@ -689,9 +689,11 @@ const server = createServer(async (request, response) => {
 
     // ── Social: Posts ──────────────────────────────────────────────
     if (request.method === 'GET' && url.pathname === '/api/v1/posts') {
-      const user = requireSessionUser(request, response);
-      if (!user) return;
-      sendJson(response, 200, { posts: listPosts(user.id) });
+      // Public endpoint — guests see posts without myReaction
+      const sessionId = getCookie(request, SESSION_COOKIE);
+      const session = sessionId ? getSession(sessionId) : null;
+      const userId = session?.userId || '';
+      sendJson(response, 200, { posts: listPosts(userId) });
       return;
     }
 

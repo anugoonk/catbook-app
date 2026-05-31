@@ -264,6 +264,17 @@ const TopNavigation = ({ onLogout }) => {
 
         {/* Right: Icons */}
         <div className="flex items-center justify-end gap-1.5 lg:gap-3 lg:w-1/3">
+          {!currentUser ? (
+            // Guest: ปุ่ม login
+            <button
+              onClick={() => navigate('/login')}
+              className="flex items-center gap-2 bg-white text-[#4267B2] font-bold text-sm px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors shadow-sm"
+            >
+              <LogOut className="w-4 h-4 rotate-180" />
+              เข้าสู่ระบบ
+            </button>
+          ) : (
+            <>
           <button
             onClick={() => setMobileSearchOpen(true)}
             className="lg:hidden bg-[#ffffff1a] hover:bg-[#ffffff33] p-2.5 rounded-full text-white transition-colors"
@@ -366,6 +377,8 @@ const TopNavigation = ({ onLogout }) => {
               <LogOut className="w-5 h-5" />
             </button>
           </div>
+            </>
+          )}
         </div>
       </div>
     </>

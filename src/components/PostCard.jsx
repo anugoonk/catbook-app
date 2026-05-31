@@ -112,8 +112,16 @@ const PostCard = ({ post, onDeleted }) => {
     ? mentionableCats.filter(c => c.name.toLowerCase().includes(mentionQuery.toLowerCase()))
     : [];
 
+  const isGuest = !currentUser;
   const currentReaction = REACTIONS.find(r => r.id === reaction) ?? null;
-  const isOwnPost = post.userId === currentUser.id;
+  const isOwnPost = !isGuest && post.userId === currentUser.id;
+
+  const requireLogin = (e) => {
+    if (!isGuest) return false;
+    e?.stopPropagation?.();
+    navigate('/login');
+    return true;
+  };
 
   const showToast = (msg) => {
     setToastMsg(msg);
@@ -122,6 +130,7 @@ const PostCard = ({ post, onDeleted }) => {
 
   /* ── Reaction handlers ── */
   const handleLikeClick = async () => {
+    if (requireLogin()) return;
     const prev = reaction;
     const prevCount = likeCount;
     if (reaction) {
@@ -141,6 +150,7 @@ const PostCard = ({ post, onDeleted }) => {
   };
 
   const selectReaction = async (id) => {
+    if (requireLogin()) return;
     const prev = reaction;
     const prevCount = likeCount;
     if (reaction === id) {
@@ -169,6 +179,7 @@ const PostCard = ({ post, onDeleted }) => {
 
   /* ── Comment handlers ── */
   const toggleComments = async () => {
+    if (requireLogin()) return;
     const next = !showComments;
     setShowComments(next);
     if (next) {

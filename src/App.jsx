@@ -127,6 +127,12 @@ export default function App() {
             />
             <Route path="/privacy" element={lazyElement(PrivacyPage)} />
             <Route path="/terms"   element={lazyElement(TermsPage)} />
+            {/* Public: News Feed เข้าได้โดยไม่ต้อง login */}
+            <Route element={<MainLayout onLogout={handleLogout} onOpenChat={setActiveChat} />}>
+              <Route path="/" element={lazyElement(HomePage)} />
+            </Route>
+
+            {/* Auth required */}
             <Route
               element={
                 isLoggedIn
@@ -134,7 +140,6 @@ export default function App() {
                   : <Navigate to="/login" replace />
               }
             >
-              <Route path="/"              element={lazyElement(HomePage)} />
               <Route path="/profile"       element={lazyElement(ProfilePage)} />
               <Route path="/friends"       element={lazyElement(FriendsPage)} />
               <Route path="/lostcats"      element={lazyElement(LostCatsPage)} />
