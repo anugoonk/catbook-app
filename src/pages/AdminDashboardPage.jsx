@@ -4,7 +4,6 @@ import {
   BarChart2, Users, FileText, Store, Shield, ArrowLeft,
   Crown, Search, AlertTriangle, Package,
 } from 'lucide-react';
-import { mockUsers, mockLostCats } from '../data/mockData';
 import { useUser } from '../context/UserContext';
 import { adminApi } from '../services/commerceApi';
 import Toast from '../components/Toast';
@@ -35,23 +34,6 @@ const PAYMENT_STATUSES = ['pending', 'paid', 'failed', 'refunded', 'pending_cod'
 const SHIPPING_STATUSES = ['pending', 'packed', 'shipped', 'delivered', 'cancelled'];
 const ALL_FILTER = 'all';
 
-const buildMarket = (users) => {
-  const [u1, u2, u3, u4] = users;
-  return [
-    { id: 'm1', title: 'คอนโดแมว 3 ชั้น พร้อมที่ลับเล็บและของเล่นแขวน', price: 850,  category: 'คอนโดและที่นอน', location: 'กรุงเทพฯ',   seller: u1.activeCat, img: 'https://images.unsplash.com/photo-1545249390-6bdfa286032f?w=400&q=80' },
-    { id: 'm2', title: 'อาหารเปียกรสทูน่า ยกลัง 24 กระป๋อง',              price: 420,  category: 'อาหารแมว',        location: 'เชียงใหม่',    seller: u3.activeCat, img: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=400&q=80' },
-    { id: 'm3', title: 'ของเล่นแมว เมาส์ไฟฟ้าอัตโนมัติ ชาร์จ USB',        price: 299,  category: 'ของเล่น',          location: 'กรุงเทพฯ',   seller: u2.activeCat, img: 'https://images.unsplash.com/photo-1526336024174-e58f5cdd8e13?w=400&q=80' },
-    { id: 'm4', title: 'ทรายแมวอนามัย กลิ่นมะนาว ก้อนแน่น 10 ลิตร',       price: 185,  category: 'ทรายแมว',          location: 'นนทบุรี',     seller: u4.activeCat, img: 'https://images.unsplash.com/photo-1511275539165-cc46b1ee89bf?w=400&q=80' },
-  ];
-};
-
-const buildActivity = (users) => [
-  { dot: 'bg-green-400',  text: `${users[3].activeCat.name} เพิ่งลงทะเบียนเข้าระบบ`,         time: 'เมื่อกี้' },
-  { dot: 'bg-blue-400',   text: `${users[1].activeCat.name} โพสต์รูปใหม่`,                   time: '5 นาทีที่แล้ว' },
-  { dot: 'bg-orange-400', text: `${users[2].activeCat.name} ลงสินค้าใหม่ในตลาดนัด`,              time: '12 นาทีที่แล้ว' },
-  { dot: 'bg-red-400',    text: 'มีรายงานโพสต์ต้องสงสัย 1 รายการ',                           time: '30 นาทีที่แล้ว' },
-  { dot: 'bg-purple-400', text: `${users[0].activeCat.name} อัปเดตโปรไฟล์`,                  time: '1 ชั่วโมงที่แล้ว' },
-];
 
 /* ── small shared components ── */
 const Th = ({ children, center }) => (
@@ -261,7 +243,7 @@ const AdminDashboardPage = () => {
   const [postSearch, setPostSearch] = useState('');
 
   /* marketplace */
-  const [market, setMarket]     = useState(() => buildMarket(mockUsers));
+  const [market, setMarket]     = useState([]);
   const [marketCat, setMarketCat] = useState(ALL_FILTER);
   const [marketSearch, setMarketSearch] = useState('');
   const [marketStatus, setMarketStatus] = useState(ALL_FILTER);
@@ -280,7 +262,9 @@ const AdminDashboardPage = () => {
   const [orderShipping, setOrderShipping] = useState(ALL_FILTER);
 
   /* lost cats */
-  const [lostCats, setLostCats] = useState(mockLostCats);
+  const [lostCats, setLostCats] = useState([]);
+  /* activity */
+  const [activities, setActivities] = useState([]);
 
   /* 2-click delete confirm: { type, id } */
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -328,14 +312,32 @@ const AdminDashboardPage = () => {
     }
   }, [showToast]);
 
+  const loadLostCats = useCallback(async () => {
+    try {
+      const response = await adminApi.lostCats();
+      setLostCats(response.lostCats || []);
+    } catch {
+      showToast('โหลดประกาศแมวหายไม่สำเร็จ');
+    }
+  }, [showToast]);
+
+  const loadActivity = useCallback(async () => {
+    try {
+      const response = await adminApi.activity();
+      setActivities(response.activities || []);
+    } catch { /* non-critical */ }
+  }, []);
+
   useEffect(() => {
     if (currentUser?.isAdmin) {
       loadMarket();
       loadOrders();
       loadUsers();
       loadPosts();
+      loadLostCats();
+      loadActivity();
     }
-  }, [currentUser, loadMarket, loadOrders, loadUsers, loadPosts]);
+  }, [currentUser, loadMarket, loadOrders, loadUsers, loadPosts, loadLostCats, loadActivity]);
 
   useEffect(() => {
     setTrackingDrafts(prev => Object.fromEntries(orders.map(order => [order.id, prev[order.id] ?? order.trackingNo ?? ''])));
@@ -526,10 +528,15 @@ const AdminDashboardPage = () => {
     const updated = await action(orderId, { gatewayRef: `MANUAL-${Date.now()}` });
     showToast(updated ? message : 'อัปเดต payment ไม่สำเร็จ');
   };
-  const deleteLost = (id) => {
-    setLostCats(p => p.filter(x => x.id !== id));
-    setConfirmDelete(null);
-    showToast('ลบประกาศเรียบร้อยแล้ว');
+  const deleteLost = async (id) => {
+    try {
+      await adminApi.deleteLostCat(id);
+      setLostCats(p => p.filter(x => x.id !== id));
+      setConfirmDelete(null);
+      showToast('ลบประกาศเรียบร้อยแล้ว');
+    } catch {
+      showToast('ลบประกาศไม่สำเร็จ');
+    }
   };
 
   /* ── derived data ── */
@@ -697,7 +704,7 @@ const AdminDashboardPage = () => {
               <div className="bg-white rounded-xl border border-gray-200 p-5">
                 <h3 className="font-bold text-[#050505] text-[15px] mb-4">กิจกรรมล่าสุด</h3>
                 <div className="space-y-3">
-                  {buildActivity(mockUsers).map((a, i) => (
+                  {activities.map((a, i) => (
                     <div key={i} className="flex items-center gap-2.5">
                       <span className={`w-2 h-2 rounded-full shrink-0 ${a.dot}`} />
                       <span className="text-[14px] text-gray-600 flex-1">{a.text}</span>

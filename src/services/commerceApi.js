@@ -37,6 +37,11 @@ export const orderApi = {
   detail: (orderNo) => api.get(`/orders/${encodeURIComponent(orderNo)}`),
 };
 
+export const lostCatApi = {
+  list: () => api.get('/lostcats'),
+  create: (payload) => api.post('/lostcats', payload),
+};
+
 export const sellerApi = {
   products: () => api.get('/seller/products'),
   createProduct: (payload) => api.post('/seller/products', payload),
@@ -68,6 +73,9 @@ export const adminApi = {
   updateUserRole: (userId, role) => api.patch(`/admin/users/${userId}`, { role }),
   setUserStatus: (userId, status) => api.patch(`/admin/users/${userId}/status`, { status }),
   deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
+  lostCats: () => api.get('/admin/lostcats'),
+  deleteLostCat: (id) => api.delete(`/admin/lostcats/${id}`),
+  activity: () => api.get('/admin/activity'),
   posts: () => api.get('/admin/posts'),
   deletePost: (postId) => api.delete(`/admin/posts/${postId}`),
   setPostVisibility: (postId, hidden) => api.patch(`/admin/posts/${postId}/visibility`, { hidden }),

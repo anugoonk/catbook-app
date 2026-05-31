@@ -12,6 +12,7 @@ const MIGRATION_002_FILE = join(process.cwd(), 'migrations', '002_role_system.sq
 const MIGRATION_003_FILE = join(process.cwd(), 'migrations', '003_social.sql');
 const MIGRATION_004_FILE = join(process.cwd(), 'migrations', '004_auth_hardening.sql');
 const MIGRATION_005_FILE = join(process.cwd(), 'migrations', '005_moderation.sql');
+const MIGRATION_006_FILE = join(process.cwd(), 'migrations', '006_lost_cats.sql');
 const SCHEMA_VERSION = 5;
 
 // Initialize Database connection
@@ -72,6 +73,12 @@ const userStatusColExists = db.prepare("SELECT name FROM pragma_table_info('user
 if (!userStatusColExists) {
   const migration005 = readFileSync(MIGRATION_005_FILE, 'utf8');
   db.exec(migration005);
+}
+
+// Migration 006: lost_cats table
+const lostCatsTableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='lost_cats'").get();
+if (!lostCatsTableExists) {
+  db.exec(readFileSync(MIGRATION_006_FILE, 'utf8'));
 }
 
 // Initialize db_meta table for tracking database metadata

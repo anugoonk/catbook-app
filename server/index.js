@@ -6,6 +6,7 @@ import { cancelAdminOrder, createOrderFromCart, getOrder, listAllOrders, listOrd
 import { backupDatabase, cleanExpiredSessions, createSession, createUser, db, deleteSession, getDatabaseHealth, getSession, readDatabase, removeUser, setUserStatus, updateUserActiveCat, withDatabase } from './database.js';
 import { parseUpload, serveUpload } from './uploadStore.js';
 import { createComment, createPost, deletePost, deletePostAdmin, listAdminPosts, listComments, listPosts, removeReaction, seedMockPosts, setPostHidden, toggleFollow, upsertReaction } from './socialStore.js';
+import { createLostCat, deleteLostCat, listLostCats, seedLostCats } from './lostCatStore.js';
 import { findProductBySlug, listProducts } from './productRepository.js';
 import { adjustAdminStock, archiveAdminProduct, createAdminProduct, listAdminProducts, updateAdminProduct } from './adminProductRepository.js';
 import { adjustSellerStock, archiveSellerProduct, createSellerProduct, listSellerProducts, updateSellerProduct } from './sellerProductRepository.js';
@@ -55,6 +56,7 @@ const getClientIp = (request) =>
 // Load ALL users from DB (includes mock users + registered users)
 const dbData = await readDatabase();
 seedMockPosts();
+seedLostCats();
 let authUsers = dbData.users.map(dbUser => ({
   id: dbUser.id,
   email: dbUser.email,
@@ -896,6 +898,82 @@ const server = createServer(async (request, response) => {
       const result = await archiveSellerProduct(productId, user);
       if (result.error) { sendJson(response, result.error.status, result.error); return; }
       sendJson(response, 200, result);
+      return;
+    }
+
+    // ── Lost Cats (public + admin) ────────────────────────────────
+    if (request.method === 'GET' && url.pathname === '/api/v1/lostcats') {
+      const user = requireSessionUser(request, response);
+      if (!user) return;
+      sendJson(response, 200, { lostCats: listLostCats('active') });
+      return;
+    }
+
+    if (request.method === 'POST' && url.pathname === '/api/v1/lostcats') {
+      const user = requireSessionUser(request, response);
+      if (!user) return;
+      const result = createLostCat(user.id, await readBody(request));
+      if (result.error) { sendJson(response, result.error.status, result.error); return; }
+      await auditLog({ actorUserId: user.id, action: 'lostcat.create', entityType: 'lostcat', entityId: result.lostCat.id });
+      sendJson(response, 201, result);
+      return;
+    }
+
+    if (request.method === 'GET' && url.pathname === '/api/v1/admin/lostcats') {
+      const user = requireAdminUser(request, response);
+      if (!user) return;
+      sendJson(response, 200, { lostCats: listLostCats('all') });
+      return;
+    }
+
+    if (request.method === 'DELETE' && url.pathname.startsWith('/api/v1/admin/lostcats/')) {
+      const user = requireAdminUser(request, response);
+      if (!user) return;
+      const id = decodeURIComponent(url.pathname.replace('/api/v1/admin/lostcats/', ''));
+      const result = deleteLostCat(id);
+      if (result.error) { sendJson(response, result.error.status, result.error); return; }
+      await auditLog({ actorUserId: user.id, action: 'admin.lostcat_deleted', entityType: 'lostcat', entityId: id });
+      sendJson(response, 200, result);
+      return;
+    }
+
+    // ── Admin: Activity feed from audit_logs ──────────────────────
+    if (request.method === 'GET' && url.pathname === '/api/v1/admin/activity') {
+      const user = requireAdminUser(request, response);
+      if (!user) return;
+      const ACTION_MAP = {
+        'auth.login':            { dot: 'bg-green-400',  label: 'เข้าสู่ระบบ' },
+        'auth.register':         { dot: 'bg-blue-400',   label: 'ลงทะเบียนใหม่' },
+        'social.post_created':   { dot: 'bg-orange-400', label: 'โพสต์ใหม่' },
+        'seller.product_create': { dot: 'bg-purple-400', label: 'ลงสินค้าใหม่' },
+        'product.create':        { dot: 'bg-purple-400', label: 'เพิ่มสินค้า' },
+        'lostcat.create':        { dot: 'bg-red-400',    label: 'แจ้งแมวหาย' },
+        'auth.account_deleted':  { dot: 'bg-gray-400',   label: 'ลบบัญชี' },
+        'admin.user_role_updated': { dot: 'bg-indigo-400', label: 'เปลี่ยนสิทธิ์สมาชิก' },
+      };
+      const formatDiff = (iso) => {
+        const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+        if (mins < 1) return 'เมื่อกี้';
+        if (mins < 60) return `${mins} นาทีที่แล้ว`;
+        const h = Math.floor(mins / 60);
+        if (h < 24) return `${h} ชั่วโมงที่แล้ว`;
+        return `${Math.floor(h / 24)} วันที่แล้ว`;
+      };
+      const rows = db.prepare(`
+        SELECT a.id, a.action, a.created_at, u.active_cat_json
+        FROM audit_logs a
+        LEFT JOIN users u ON u.id = a.actor_user_id
+        ORDER BY a.created_at DESC LIMIT 20
+      `).all();
+      const activities = rows
+        .filter(r => ACTION_MAP[r.action])
+        .map(r => {
+          const meta = ACTION_MAP[r.action];
+          const cat = r.active_cat_json ? JSON.parse(r.active_cat_json) : null;
+          const actor = cat?.name || 'ผู้ใช้';
+          return { dot: meta.dot, text: `${actor} ${meta.label}`, time: formatDiff(r.created_at) };
+        });
+      sendJson(response, 200, { activities });
       return;
     }
 
