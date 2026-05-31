@@ -4,6 +4,7 @@ export const socialApi = {
   listPosts: () => api.get('/posts'),
   createPost: (payload) => api.post('/posts', payload),
   deletePost: (postId) => api.delete(`/posts/${postId}`),
+  updatePost: (postId, content) => api.patch(`/posts/${postId}`, { content }),
   reactToPost: (postId, type) => api.post(`/posts/${postId}/reactions`, { type }),
   removeReaction: (postId) => api.delete(`/posts/${postId}/reactions`),
   listComments: (postId) => api.get(`/posts/${postId}/comments`),

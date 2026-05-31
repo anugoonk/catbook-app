@@ -5,7 +5,7 @@ import { addCartItem, clearCart, getCart, removeCartItem, updateCartItem } from 
 import { cancelAdminOrder, createOrderFromCart, getOrder, listAllOrders, listOrders, markPaymentFailed, markPaymentPaid, refundPayment, updateAdminOrder, updateOrderStatus } from './orderStore.js';
 import { backupDatabase, cleanExpiredSessions, createSession, createUser, db, deleteSession, getDatabaseHealth, getSession, readDatabase, removeUser, setUserStatus, updateUserActiveCat, withDatabase } from './database.js';
 import { parseUpload, serveUpload } from './uploadStore.js';
-import { createComment, createPost, deletePost, deletePostAdmin, listAdminPosts, listComments, listPosts, removeReaction, seedMockPosts, setPostHidden, toggleFollow, upsertReaction } from './socialStore.js';
+import { createComment, createPost, deletePost, deletePostAdmin, listAdminPosts, listComments, listPosts, removeReaction, seedMockPosts, setPostHidden, toggleFollow, updatePost, upsertReaction } from './socialStore.js';
 import { createLostCat, deleteLostCat, listLostCats, seedLostCats, updateLostCatStatus } from './lostCatStore.js';
 import { getConversation, sendMessage, getInboxPreviews } from './messageStore.js';
 import { findProductBySlug, listProducts } from './productRepository.js';
@@ -752,11 +752,26 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (request.method === 'PATCH' && url.pathname.startsWith('/api/v1/posts/') && !url.pathname.includes('/reactions') && !url.pathname.includes('/comments') && !url.pathname.includes('/visibility')) {
+      const user = requireSessionUser(request, response);
+      if (!user) return;
+      const postId = decodeURIComponent(url.pathname.replace('/api/v1/posts/', ''));
+      const { content } = await readBody(request);
+      if (!content?.trim()) { sendError(response, 400, 'Content required', 'BAD_REQUEST'); return; }
+      const result = updatePost(postId, user.id, content.trim());
+      if (result.error) { sendError(response, result.error.status, result.error.message); return; }
+      sendJson(response, 200, result);
+      return;
+    }
+
     if (request.method === 'DELETE' && url.pathname.startsWith('/api/v1/posts/') && !url.pathname.includes('/reactions') && !url.pathname.includes('/comments')) {
       const user = requireSessionUser(request, response);
       if (!user) return;
       const postId = decodeURIComponent(url.pathname.replace('/api/v1/posts/', ''));
-      const result = deletePost(postId, user.id);
+      // Admin สามารถลบโพสต์ใดก็ได้
+      const result = user.role === 'ADMIN'
+        ? deletePostAdmin(postId)
+        : deletePost(postId, user.id);
       if (result.error) { sendError(response, result.error.status, result.error.message); return; }
       await auditLog({ actorUserId: user.id, action: 'social.post_deleted', entityType: 'post', entityId: postId });
       sendJson(response, 200, result);

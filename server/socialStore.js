@@ -152,6 +152,14 @@ export const toggleFollow = (followerId, followeeId) => {
   return { following: true };
 };
 
+export const updatePost = (postId, userId, content) => {
+  const post = db.prepare('SELECT id, user_id FROM posts WHERE id = ?').get(postId);
+  if (!post) return { error: { status: 404, message: 'Post not found' } };
+  if (post.user_id !== userId) return { error: { status: 403, message: 'Not your post' } };
+  db.prepare('UPDATE posts SET content = ? WHERE id = ?').run(content, postId);
+  return { ok: true };
+};
+
 export const deletePostAdmin = (postId) => {
   const post = db.prepare('SELECT id FROM posts WHERE id = ?').get(postId);
   if (!post) return { error: { status: 404, message: 'Post not found' } };

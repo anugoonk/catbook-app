@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Share2, MoreHorizontal, Globe, SendHorizontal, PawPrint, Link2, X, Repeat2, Trash2 } from 'lucide-react';
+import { MessageCircle, Share2, MoreHorizontal, Globe, SendHorizontal, PawPrint, Link2, X, Repeat2, Trash2, Pencil } from 'lucide-react';
 import PawIcon from './PawIcon';
 import { useUser } from '../context/UserContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -99,6 +99,9 @@ const PostCard = ({ post, onDeleted }) => {
   const [toastMsg, setToastMsg] = useState('');
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(post.content || '');
+  const [postContent, setPostContent] = useState(post.content || '');
   const [mentionQuery, setMentionQuery] = useState(null);
   const [mentionStart, setMentionStart] = useState(0);
   const hoverTimerRef = useRef(null);
@@ -115,6 +118,18 @@ const PostCard = ({ post, onDeleted }) => {
   const isGuest = !currentUser;
   const currentReaction = REACTIONS.find(r => r.id === reaction) ?? null;
   const isOwnPost = !isGuest && post.userId === currentUser.id;
+  const isAdmin = !isGuest && currentUser.role === 'ADMIN';
+  const canDelete = isOwnPost || isAdmin;
+
+  const handleSaveEdit = async () => {
+    const trimmed = editContent.trim();
+    if (!trimmed || trimmed === postContent) { setIsEditing(false); return; }
+    try {
+      await socialApi.updatePost(post.id, trimmed);
+      setPostContent(trimmed);
+      setIsEditing(false);
+    } catch { /* ignore */ }
+  };
 
   const requireLogin = (e) => {
     if (!isGuest) return false;
@@ -318,8 +333,16 @@ const PostCard = ({ post, onDeleted }) => {
               <MoreHorizontal className="w-5 h-5" />
             </button>
             {showMenu && (
-              <div className="absolute right-0 top-full mt-1 bg-white border border-[#dddfe2] rounded-xl shadow-lg z-30 min-w-[160px] overflow-hidden">
+              <div className="absolute right-0 top-full mt-1 bg-white border border-[#dddfe2] rounded-xl shadow-lg z-30 min-w-[180px] overflow-hidden">
                 {isOwnPost && (
+                  <button
+                    onClick={() => { setShowMenu(false); setIsEditing(true); setEditContent(postContent); }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#050505] hover:bg-[#f0f2f5] transition-colors"
+                  >
+                    <Pencil className="w-4 h-4 text-[#4267B2]" /> แก้ไขโพสต์
+                  </button>
+                )}
+                {canDelete && (
                   <button
                     onClick={async () => {
                       setShowMenu(false);
@@ -330,7 +353,7 @@ const PostCard = ({ post, onDeleted }) => {
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
                   >
-                    <Trash2 className="w-4 h-4" /> ลบโพสต์
+                    <Trash2 className="w-4 h-4" /> {isAdmin && !isOwnPost ? 'ลบโพสต์ (Admin)' : 'ลบโพสต์'}
                   </button>
                 )}
                 <button onClick={() => setShowMenu(false)} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[#65676B] hover:bg-[#f0f2f5] transition-colors">
@@ -343,7 +366,23 @@ const PostCard = ({ post, onDeleted }) => {
 
         {/* Content */}
         <div className="px-4 pb-3">
-          <MentionText text={post.content} className="text-[#050505] text-[15px] leading-relaxed" />
+          {isEditing ? (
+            <div className="space-y-2">
+              <textarea
+                value={editContent}
+                onChange={e => setEditContent(e.target.value)}
+                autoFocus
+                rows={3}
+                className="w-full border border-[#4267B2] rounded-lg px-3 py-2 text-[15px] text-[#050505] resize-none focus:outline-none focus:ring-1 focus:ring-[#4267B2]"
+              />
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setIsEditing(false)} className="px-4 py-1.5 rounded-lg text-sm text-[#65676B] hover:bg-[#f0f2f5] transition-colors">ยกเลิก</button>
+                <button onClick={handleSaveEdit} className="px-4 py-1.5 rounded-lg text-sm bg-[#4267B2] text-white hover:bg-[#3b5998] transition-colors">บันทึก</button>
+              </div>
+            </div>
+          ) : (
+            <MentionText text={postContent} className="text-[#050505] text-[15px] leading-relaxed" />
+          )}
         </div>
 
         <ImageGrid images={post.images?.length ? post.images : (post.image ? [post.image] : [])} />
