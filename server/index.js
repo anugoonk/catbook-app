@@ -216,11 +216,16 @@ const assertCsrf = (request, response, url) => {
   return false;
 };
 
+// SameSite=None;Secure required for cross-origin cookies (Cloudflare Pages → Render)
+const cookieFlags = config.nodeEnv === 'production'
+  ? '; Secure; SameSite=None'
+  : '; SameSite=Lax';
+
 const setSessionCookie = (sessionId) =>
-  `${SESSION_COOKIE}=${sessionId}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400${config.nodeEnv === 'production' ? '; Secure' : ''}`;
+  `${SESSION_COOKIE}=${sessionId}; HttpOnly; Path=/; Max-Age=86400${cookieFlags}`;
 
 const clearSessionCookie = () =>
-  `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`;
+  `${SESSION_COOKIE}=; HttpOnly; Path=/; Max-Age=0${cookieFlags}`;
 
 const requestOrigin = (request) =>
   `${request.headers['x-forwarded-proto'] || 'http'}://${request.headers['x-forwarded-host'] || request.headers.host}`;
