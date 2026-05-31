@@ -235,7 +235,6 @@ const AdminDashboardPage = () => {
 
   /* users */
   const [users, setUsers]         = useState([]);
-  const [banned, setBanned]       = useState({});
   const [userSearch, setUserSearch] = useState('');
 
   /* posts */
