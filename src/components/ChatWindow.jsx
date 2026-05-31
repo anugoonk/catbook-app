@@ -284,7 +284,8 @@ const ChatWindow = ({ cat, onClose }) => {
   };
 
   const lastMyMsgId = [...messages].reverse().find(m => m.from === 'me')?.id;
-  const isTyping = false; // ไม่มี typing indicator แบบ real-time
+  const isTyping = false;
+  const readId = lastMyMsgId; // mark ข้อความสุดท้ายของเราว่า "ส่งแล้ว"
 
   return (
     <div className="fixed bottom-0 right-10 z-[100] w-[328px] rounded-t-xl shadow-2xl flex flex-col overflow-hidden border border-[#dddfe2] bg-white">
