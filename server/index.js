@@ -105,6 +105,24 @@ const readBody = (request) => new Promise((resolve, reject) => {
   });
 });
 
+// Allowed origins: dev localhost + Cloudflare Pages domain (set via CATBOOK_ALLOWED_ORIGINS)
+const ALLOWED_ORIGINS = new Set([
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  ...(process.env.CATBOOK_ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean),
+]);
+
+const getCorsHeaders = (requestOrigin) => {
+  const origin = ALLOWED_ORIGINS.has(requestOrigin) ? requestOrigin : null;
+  if (!origin) return {};
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type,x-csrf-token',
+  };
+};
+
 const SECURITY_HEADERS = {
   'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none';",
   'X-Frame-Options': 'DENY',
@@ -121,6 +139,15 @@ const sendJson = (response, status, payload, headers = {}) => {
     ...headers,
   });
   response.end(JSON.stringify(payload));
+};
+
+const handlePreflight = (request, response) => {
+  const origin = request.headers['origin'];
+  const cors = getCorsHeaders(origin);
+  if (!cors['Access-Control-Allow-Origin']) {
+    response.writeHead(403); response.end(); return true;
+  }
+  response.writeHead(204, cors); response.end(); return true;
 };
 
 const sendError = (response, status, message, code = 'API_ERROR', details) => {
@@ -200,6 +227,14 @@ const requestOrigin = (request) =>
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host}`);
+
+  // Inject CORS headers into every response automatically
+  const corsHeaders = getCorsHeaders(request.headers['origin']);
+  const _origWriteHead = response.writeHead.bind(response);
+  response.writeHead = (status, headers) => _origWriteHead(status, { ...corsHeaders, ...(headers || {}) });
+
+  // Preflight
+  if (request.method === 'OPTIONS') { handlePreflight(request, response); return; }
 
   try {
     if (!assertCsrf(request, response, url)) return;
@@ -1037,6 +1072,6 @@ server.on('clientError', (error, socket) => {
   socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
 });
 
-server.listen(PORT, '127.0.0.1', () => {
-  logInfo('server.started', { service: config.serviceName, url: `http://127.0.0.1:${PORT}` });
+server.listen(PORT, '0.0.0.0', () => {
+  logInfo('server.started', { service: config.serviceName, url: `http://0.0.0.0:${PORT}` });
 });

@@ -24,7 +24,7 @@ export const validateRuntimeConfig = (serviceName) => {
   const config = {
     serviceName,
     nodeEnv,
-    apiPort: parsePort('CATBOOK_API_PORT', 4000),
+    apiPort: process.env.PORT ? Number(process.env.PORT) : parsePort('CATBOOK_API_PORT', 4000),
     previewPort: parsePort('CATBOOK_PREVIEW_PORT', 5173),
     devPassword,
     backupDir: process.env.CATBOOK_DB_BACKUP_DIR || join(process.cwd(), 'server', 'backups'),

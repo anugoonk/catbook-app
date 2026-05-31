@@ -371,7 +371,7 @@ const TopNavigation = ({ onLogout }) => {
 
           <div className="hidden lg:block">
             <button
-              onClick={onLogout}
+              onClick={async () => { await onLogout(); navigate('/login'); }}
               className="bg-[#ffffff1a] hover:bg-[#ffffff33] p-2 rounded-full text-white transition-colors"
             >
               <LogOut className="w-5 h-5" />

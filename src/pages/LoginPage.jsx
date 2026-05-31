@@ -30,11 +30,38 @@ const LoginPage = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen bg-[#f0f2f5] flex flex-col items-center justify-center p-4">
-      <div className="mb-8 text-center flex flex-col items-center">
-        <div className="bg-[#4267B2] p-4 rounded-full mb-4 shadow-lg">
-          <PawIcon className="w-12 h-12 text-white" />
+      <div className="mb-6 text-center flex flex-col items-center">
+        <div className="bg-[#4267B2] p-3 rounded-full mb-3 shadow-lg">
+          <PawIcon className="w-10 h-10 text-white" />
         </div>
-        <h1 className="text-5xl font-bold text-[#4267B2] tracking-tight mb-2">CatBook</h1>
+
+        {/* CatB + ตีนแมว 2 อัน (ซ้อน pattern เหมือนรอยเท้า) + k */}
+        <div className="select-none" style={{ marginBottom: '0.75rem' }}>
+          <h1 className="text-5xl tracking-tight flex items-center gap-0 leading-none"
+              style={{ color: '#4267B2', fontWeight: 900 }}>
+            <span>CatB</span>
+
+            {/* container ตีนแมว — overflow ด้านล่างสำหรับตีนที่ 2 */}
+            <span className="relative shrink-0"
+                  style={{ width: '0.9em', height: '0.9em', display: 'inline-block' }}>
+
+              {/* ตีนที่ 1 */}
+              <PawIcon className="text-orange-500 w-full h-full block"
+                style={{ transform: 'rotate(-10deg)',
+                         filter: 'drop-shadow(0 2px 5px rgba(234,88,12,0.4))' }} />
+
+              {/* ตีนที่ 2 — ล่างขวา ไม่ซ้อน */}
+              <PawIcon className="text-orange-500 absolute"
+                style={{ width: '74%', height: '74%',
+                         top: '70%', left: '38%',
+                         transform: 'rotate(11deg)',
+                         filter: 'drop-shadow(0 2px 4px rgba(234,88,12,0.3))' }} />
+            </span>
+
+            <span>k</span>
+          </h1>
+        </div>
+
         <p className="text-xl text-gray-600 font-medium">Pet social commerce platform</p>
       </div>
 
