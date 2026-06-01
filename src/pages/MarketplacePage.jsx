@@ -129,7 +129,7 @@ const ProductCard = ({ item, onAdd, onSelect }) => {
   };
 
   return (
-    <div className="bg-white rounded-3xl overflow-hidden border border-[#e4e6eb] hover:border-[#4267B2]/30 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col group">
+    <div className="bg-white rounded-xl overflow-hidden border border-[#e4e6eb] hover:border-[#4267B2]/40 hover:shadow-md transition-all duration-200 flex flex-col group">
       {/* Image */}
       <div
         className="aspect-square overflow-hidden bg-[#f0f2f5] relative cursor-pointer"
@@ -150,7 +150,7 @@ const ProductCard = ({ item, onAdd, onSelect }) => {
         )}
 
         {/* Category badge */}
-        <span className="absolute top-2 left-2 bg-white/95 text-[#4267B2] text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm">
+        <span className="absolute top-2 left-2 bg-white/90 text-[#65676B] text-[11px] font-medium px-2 py-0.5 rounded-full shadow-sm border border-[#e4e6eb]/80">
           {catInfo.emoji} {item.category}
         </span>
 
@@ -165,34 +165,30 @@ const ProductCard = ({ item, onAdd, onSelect }) => {
           </span>
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black/0 group-hover:from-black/10 transition-all duration-200 flex items-end pb-2.5 justify-center">
-          <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/95 text-[#050505] text-[11px] font-bold px-3 py-1.5 rounded-full shadow">
-            ดูรายละเอียด
-          </span>
-        </div>
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200" />
       </div>
 
-      <div className="p-4 flex flex-col flex-1 gap-2">
+      <div className="p-3 flex flex-col flex-1 gap-1.5">
         {/* Price */}
-        <div className="flex items-baseline gap-1">
-          <span className="font-black text-[22px] text-[#FF6B35] leading-none">{item.price.toLocaleString()}</span>
-          <span className="text-gray-400 text-[12px] font-medium">฿</span>
+        <div className="flex items-baseline gap-0.5">
+          <span className="font-bold text-[18px] text-[#050505] leading-none">{item.price.toLocaleString()}</span>
+          <span className="text-[#65676B] text-[13px] ml-0.5">฿</span>
         </div>
 
         {/* Title */}
         <p
-          className="text-[#050505] text-[13px] font-semibold line-clamp-2 leading-snug cursor-pointer hover:text-[#4267B2] transition-colors"
+          className="text-[#050505] text-[13px] font-medium line-clamp-2 leading-snug cursor-pointer hover:text-[#4267B2] transition-colors"
           onClick={() => onSelect(item)}
         >
           {item.title}
         </p>
 
-        <p className="text-[#65676B] text-[11px]">📍 {item.location}</p>
+        <p className="text-[#65676B] text-[12px]">📍 {item.location}</p>
 
         {item.seller?.avatar && (
           <button onClick={goToSeller} className="flex items-center gap-1.5 w-fit hover:opacity-75 transition-opacity">
-            <img src={item.seller.avatar} loading="lazy" decoding="async" className="w-5 h-5 rounded-full object-cover ring-1 ring-[#e4e6eb]" alt="" />
-            <span className="text-[11px] text-[#65676B] font-medium">{item.seller.name}</span>
+            <img src={item.seller.avatar} loading="lazy" decoding="async" className="w-5 h-5 rounded-full object-cover" alt="" />
+            <span className="text-[12px] text-[#65676B]">{item.seller.name}</span>
           </button>
         )}
 
@@ -202,16 +198,16 @@ const ProductCard = ({ item, onAdd, onSelect }) => {
         <button
           onClick={handleAdd}
           disabled={isAdding || isOwn}
-          className={`w-full font-bold text-[13px] py-2.5 rounded-2xl transition-all flex items-center justify-center gap-1.5 active:scale-[0.97]
+          className={`w-full font-semibold text-[13px] py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5
             ${isOwn
               ? 'bg-[#f0f2f5] text-[#bcc0c4] cursor-default'
               : inCart
-                ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100'
+                ? 'bg-blue-50 text-[#4267B2] border border-[#4267B2]/20 hover:bg-blue-100'
                 : isAdding
                   ? 'bg-[#f0f2f5] text-[#bcc0c4] cursor-wait'
                   : justAdded
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-[#FF6B35] hover:bg-[#e55a25] text-white shadow-sm'}`}
+                    ? 'bg-[#42b883] text-white'
+                    : 'bg-[#4267B2] hover:bg-[#3b5998] text-white'}`}
         >
           {isOwn    ? 'สินค้าของคุณ'
           : inCart  ? <><ShoppingCart className="w-3.5 h-3.5" /> ดูในถาดเหมียว</>
@@ -221,20 +217,20 @@ const ProductCard = ({ item, onAdd, onSelect }) => {
         </button>
 
         {/* Affiliate */}
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 mt-0.5">
           <a
             href={shopeeUrl} target="_blank" rel="noopener noreferrer sponsored"
             onClick={() => handleAffiliateClick('shopee', shopeeUrl)}
-            className="flex-1 flex items-center justify-center gap-1 bg-[#fff0ed] hover:bg-[#ffe0d9] text-[#EE4D2D] text-[10px] font-bold py-1.5 rounded-xl transition-colors border border-[#EE4D2D]/15"
+            className="flex-1 flex items-center justify-center gap-1 bg-[#f0f2f5] hover:bg-[#e4e6eb] text-[#65676B] text-[11px] font-medium py-1.5 rounded-lg transition-colors"
           >
-            <ShopeeIcon className="w-3.5 h-3.5" /> Shopee
+            <ShopeeIcon className="w-3 h-3" /> Shopee
           </a>
           <a
             href={lazadaUrl} target="_blank" rel="noopener noreferrer sponsored"
             onClick={() => handleAffiliateClick('lazada', lazadaUrl)}
-            className="flex-1 flex items-center justify-center gap-1 bg-[#eeeeff] hover:bg-[#ddddf5] text-[#0F0F60] text-[10px] font-bold py-1.5 rounded-xl transition-colors border border-[#0F0F60]/10"
+            className="flex-1 flex items-center justify-center gap-1 bg-[#f0f2f5] hover:bg-[#e4e6eb] text-[#65676B] text-[11px] font-medium py-1.5 rounded-lg transition-colors"
           >
-            <LazadaIcon className="w-3.5 h-3.5" /> Lazada
+            <LazadaIcon className="w-3 h-3" /> Lazada
           </a>
         </div>
       </div>
@@ -336,83 +332,86 @@ const MarketplacePage = () => {
       <Toast message={toast} />
 
       {/* ── Sidebar ── */}
-      <div className="hidden md:flex w-[240px] shrink-0 bg-white border-r border-[#e4e6eb] flex-col sticky top-[56px] h-[calc(100vh-56px)] overflow-y-auto">
+      <div className="hidden md:block w-[280px] shrink-0 bg-white border-r border-[#e4e6eb] sticky top-[56px] h-[calc(100vh-56px)] overflow-y-auto no-scrollbar px-2 pt-3 pb-4">
 
-        {/* Header */}
-        <div className="px-5 pt-5 pb-3">
-          <div className="flex items-center gap-2 mb-0.5">
-            <h1 className="text-[20px] font-bold text-[#050505]">Cat Shop</h1>
-            <PawIcon className="w-5 h-5 text-[#FF6B35] shrink-0" />
+        {/* Header — style เดียวกับ LeftSidebar */}
+        <div className="px-3 pt-1 pb-3">
+          <div className="flex items-center gap-2">
+            <PawIcon className="w-6 h-6 text-[#4267B2] shrink-0" />
+            <h1 className="text-[17px] font-semibold text-[#050505]">Cat Shop</h1>
           </div>
-          <p className="text-[12px] text-[#65676B] mb-4">สินค้าสำหรับน้องแมวโดยเฉพาะ</p>
+          <p className="text-[13px] text-[#65676B] mt-0.5 ml-8">สินค้าสำหรับน้องแมวโดยเฉพาะ</p>
+        </div>
 
+        {/* Action buttons */}
+        <div className="px-1 pb-3 space-y-1">
           {isSeller && (
             <button
               onClick={() => setIsModalOpen(true)}
-              className="w-full flex items-center justify-center gap-2 bg-[#ebf5ff] hover:bg-[#dce9ff] text-[#1877f2] font-semibold text-[14px] py-2.5 rounded-lg transition-colors mb-3"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#e4e6eb] text-[#050505] font-medium text-[15px] transition-colors"
             >
-              <Plus className="w-4 h-4" /> ลงขายสินค้าใหม่
+              <Plus className="w-6 h-6 text-[#4267B2] shrink-0" />
+              <span>ลงขายสินค้าใหม่</span>
             </button>
           )}
-
           <button
             onClick={() => setIsOpen(true)}
-            className="w-full flex items-center justify-between bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-semibold text-[14px] py-2.5 px-4 rounded-lg transition-colors"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#e4e6eb] text-[#050505] font-medium text-[15px] transition-colors"
           >
-            <span className="flex items-center gap-2"><span className="text-lg">🛒</span> ถาดเหมียว</span>
+            <ShoppingCart className="w-6 h-6 text-[#4267B2] shrink-0" />
+            <span className="flex-1 text-left">ถาดเหมียว</span>
             {count > 0 && (
-              <span className="bg-[#4267B2] text-white text-xs font-black px-2 py-0.5 rounded-full">{count}</span>
+              <span className="bg-[#4267B2] text-white text-[11px] font-semibold px-1.5 py-0.5 rounded-full">{count}</span>
             )}
           </button>
         </div>
 
-        {/* Categories */}
-        <div className="px-4 py-3 flex-1">
-          <p className="text-[11px] font-semibold text-[#bcc0c4] uppercase tracking-widest mb-2 px-1">หมวดหมู่</p>
-          <div className="space-y-0.5">
-            {CATEGORIES.map(({ id, emoji }) => {
-              const cnt = id === 'ทั้งหมด' ? items.length : items.filter(i => i.category === id).length;
-              const isActive = activeCategory === id;
-              return (
+        <div className="mx-3 h-px bg-[#e4e6eb] mb-3" />
+
+        {/* Categories — copy LeftSidebar style ทุก token */}
+        <ul className="space-y-0.5 px-1">
+          {CATEGORIES.map(({ id, emoji }) => {
+            const cnt   = id === 'ทั้งหมด' ? items.length : items.filter(i => i.category === id).length;
+            const isActive = activeCategory === id;
+            return (
+              <li key={id}>
                 <button
-                  key={id}
                   onClick={() => setActiveCategory(id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors font-medium text-[15px]
                     ${isActive
-                      ? 'bg-[#ebf5ff] text-[#1877f2] font-semibold'
-                      : 'text-[#65676B] hover:bg-[#f0f2f5]'}`}
+                      ? 'bg-blue-50 text-[#4267B2] font-semibold'
+                      : 'hover:bg-[#e4e6eb] text-[#050505]'}`}
                 >
-                  <span className="text-base w-6 text-center leading-none">{emoji}</span>
-                  <span className="flex-1 text-left">{id}</span>
-                  <span className={`text-[11px] font-semibold ${isActive ? 'text-[#1877f2]/60' : 'text-[#bcc0c4]'}`}>{cnt}</span>
+                  <span className="w-6 h-6 flex items-center justify-center text-[18px] leading-none shrink-0">{emoji}</span>
+                  <span className="flex-1 text-left truncate">{id}</span>
+                  <span className={`text-[13px] ${isActive ? 'text-[#4267B2]/60' : 'text-[#bcc0c4]'}`}>{cnt}</span>
                 </button>
-              );
-            })}
-          </div>
-        </div>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="mx-3 h-px bg-[#e4e6eb] my-3" />
 
         {/* Affiliate */}
-        <div className="px-4 pb-5 border-t border-[#f0f2f5] pt-3">
-          <p className="text-[11px] font-semibold text-[#bcc0c4] uppercase tracking-widest mb-2 px-1">ช้อปพาร์ทเนอร์</p>
-          <a href={shopeeLink} target="_blank" rel="noopener noreferrer sponsored"
-            className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-[#fff0ed] border border-[#EE4D2D]/15 hover:bg-[#ffe0d9] transition-colors mb-2">
-            <ShopeeIcon className="w-6 h-6 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-bold text-[#EE4D2D]">Shopee</p>
-              <p className="text-[10px] text-[#65676B]">ส่งฟรี · ราคาดี</p>
-            </div>
-            <ExternalLink className="w-3 h-3 text-[#bcc0c4] shrink-0" />
-          </a>
-          <a href={lazadaLink} target="_blank" rel="noopener noreferrer sponsored"
-            className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-[#eeeeff] border border-[#0F0F60]/10 hover:bg-[#ddddf5] transition-colors">
-            <LazadaIcon className="w-6 h-6 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-bold text-[#0F0F60]">Lazada</p>
-              <p className="text-[10px] text-[#65676B]">ลดราคา · คืนง่าย</p>
-            </div>
-            <ExternalLink className="w-3 h-3 text-[#bcc0c4] shrink-0" />
-          </a>
-        </div>
+        <ul className="space-y-0.5 px-1">
+          <li>
+            <a href={shopeeLink} target="_blank" rel="noopener noreferrer sponsored"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#e4e6eb] transition-colors font-medium text-[15px] text-[#050505]">
+              <ShopeeIcon className="w-6 h-6 shrink-0" />
+              <span className="flex-1">Shopee</span>
+              <ExternalLink className="w-3.5 h-3.5 text-[#bcc0c4] shrink-0" />
+            </a>
+          </li>
+          <li>
+            <a href={lazadaLink} target="_blank" rel="noopener noreferrer sponsored"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#e4e6eb] transition-colors font-medium text-[15px] text-[#050505]">
+              <LazadaIcon className="w-6 h-6 shrink-0" />
+              <span className="flex-1">Lazada</span>
+              <ExternalLink className="w-3.5 h-3.5 text-[#bcc0c4] shrink-0" />
+            </a>
+          </li>
+        </ul>
       </div>
 
       {/* ── Main ── */}
@@ -425,29 +424,31 @@ const MarketplacePage = () => {
               <button
                 key={id}
                 onClick={() => setActiveCategory(id)}
-                className={`shrink-0 px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors
-                  ${activeCategory === id ? 'bg-[#1877f2] text-white' : 'bg-white text-[#65676B] border border-[#e4e6eb]'}`}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors
+                  ${activeCategory === id
+                    ? 'bg-[#4267B2] text-white'
+                    : 'bg-white text-[#050505] border border-[#e4e6eb] hover:bg-[#e4e6eb]'}`}
               >
                 {emoji} {id}
               </button>
             ))}
           </div>
-          <button onClick={() => setIsOpen(true)} className="relative shrink-0 bg-amber-50 border border-amber-200 text-amber-700 p-2 rounded-lg">
-            <span className="text-lg leading-none">🛒</span>
+          <button onClick={() => setIsOpen(true)} className="relative shrink-0 bg-white border border-[#e4e6eb] text-[#050505] p-2 rounded-lg hover:bg-[#e4e6eb] transition-colors">
+            <ShoppingCart className="w-5 h-5 text-[#4267B2]" />
             {count > 0 && (
-              <span className="absolute -top-1 -right-1 bg-[#4267B2] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">{count}</span>
+              <span className="absolute -top-1 -right-1 bg-[#4267B2] text-white text-[9px] font-semibold w-4 h-4 rounded-full flex items-center justify-center">{count}</span>
             )}
           </button>
           {isSeller && (
-            <button onClick={() => setIsModalOpen(true)} className="shrink-0 flex items-center gap-1 bg-[#ebf5ff] text-[#1877f2] font-semibold text-[13px] px-3 py-2 rounded-lg">
+            <button onClick={() => setIsModalOpen(true)} className="shrink-0 flex items-center gap-1.5 bg-[#ebf5ff] text-[#4267B2] font-semibold text-[13px] px-3 py-2 rounded-lg hover:bg-[#dce9ff] transition-colors">
               <Plus className="w-4 h-4" /> ลงขาย
             </button>
           )}
         </div>
 
         {/* Section header */}
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[18px] font-bold text-[#050505]">
+        <div className="mb-3">
+          <h2 className="text-[18px] font-semibold text-[#050505]">
             {activeCategory === 'ทั้งหมด' ? 'สินค้าทั้งหมด' : activeCategory}
             <span className="text-[#65676B] font-normal text-[14px] ml-2">({displayed.length} รายการ)</span>
           </h2>
@@ -457,33 +458,29 @@ const MarketplacePage = () => {
         {isLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {Array.from({ length: 8 }).map((_, idx) => (
-              <div key={idx} className="bg-white rounded-3xl border border-[#e4e6eb] overflow-hidden animate-pulse">
+              <div key={idx} className="bg-white rounded-xl border border-[#e4e6eb] overflow-hidden animate-pulse">
                 <div className="aspect-square bg-[#f0f2f5]" />
-                <div className="p-4 space-y-2.5">
-                  <div className="h-5 bg-[#f0f2f5] rounded-xl w-20" />
-                  <div className="h-3 bg-[#f0f2f5] rounded-xl" />
-                  <div className="h-3 bg-[#f0f2f5] rounded-xl w-3/4" />
-                  <div className="h-9 bg-[#f0f2f5] rounded-2xl mt-3" />
-                  <div className="flex gap-1.5">
-                    <div className="h-7 flex-1 bg-[#fff0ed] rounded-xl" />
-                    <div className="h-7 flex-1 bg-[#eeeeff] rounded-xl" />
-                  </div>
+                <div className="p-3 space-y-2">
+                  <div className="h-4 bg-[#f0f2f5] rounded w-16" />
+                  <div className="h-3 bg-[#f0f2f5] rounded" />
+                  <div className="h-3 bg-[#f0f2f5] rounded w-2/3" />
+                  <div className="h-8 bg-[#f0f2f5] rounded-lg mt-2" />
                 </div>
               </div>
             ))}
           </div>
         ) : displayed.length === 0 ? (
-          <div className="bg-white rounded-3xl border border-[#e4e6eb] py-16 text-center">
+          <div className="bg-white rounded-xl border border-[#e4e6eb] py-16 text-center">
             <p className="text-4xl mb-3">🐾</p>
-            <p className="font-bold text-[#050505] text-[15px]">ยังไม่มีสินค้าในหมวดนี้</p>
-            <p className="text-[#65676B] text-[13px] mt-1 mb-5">ลองดูใน marketplace ข้างนอกได้เลย</p>
+            <p className="font-semibold text-[#050505] text-[15px]">ยังไม่มีสินค้าในหมวดนี้</p>
+            <p className="text-[#65676B] text-[13px] mt-1 mb-5">ลองดูใน Marketplace ข้างนอกได้เลย</p>
             <div className="flex gap-2 justify-center">
               <a href={shopeeLink} target="_blank" rel="noopener noreferrer sponsored"
-                className="flex items-center gap-1.5 bg-[#EE4D2D] text-white text-[13px] font-bold px-4 py-2.5 rounded-xl">
+                className="flex items-center gap-1.5 bg-[#EE4D2D] text-white text-[13px] font-semibold px-4 py-2 rounded-lg">
                 <ShopeeIcon className="w-4 h-4" /> Shopee
               </a>
               <a href={lazadaLink} target="_blank" rel="noopener noreferrer sponsored"
-                className="flex items-center gap-1.5 bg-[#0F0F60] text-white text-[13px] font-bold px-4 py-2.5 rounded-xl">
+                className="flex items-center gap-1.5 bg-[#0F0F60] text-white text-[13px] font-semibold px-4 py-2 rounded-lg">
                 <LazadaIcon className="w-4 h-4" /> Lazada
               </a>
             </div>
