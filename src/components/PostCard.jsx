@@ -320,11 +320,11 @@ const PostCard = ({ post, onDeleted }) => {
 
         {/* Header */}
         <div className="px-4 pt-3 pb-2 flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0 cursor-pointer" onClick={() => goToProfile(post.cat)}>
-            <img src={post.cat.avatar} alt="Author" className="w-10 h-10 rounded-full object-cover shrink-0 hover:opacity-90 transition-opacity" />
+          <div className="flex items-center gap-2 min-w-0 cursor-pointer" onClick={() => post.cat && goToProfile(post.cat)}>
+            <img src={post.cat?.avatar || '/favicon.svg'} alt="Author" className="w-10 h-10 rounded-full object-cover shrink-0 hover:opacity-90 transition-opacity" />
             <div className="min-w-0">
               <h4 className="font-bold text-[#050505] text-[15px] leading-snug hover:underline">
-                {post.cat.name}
+                {post.cat?.name || '—'}
                 {post.feeling && <span className="text-[#65676B] font-normal"> — รู้สึก {post.feeling}</span>}
                 {post.location && <span className="text-[#65676B] font-normal hidden sm:inline"> ที่ {post.location}</span>}
               </h4>
@@ -579,8 +579,8 @@ const PostCard = ({ post, onDeleted }) => {
 
             <div className="px-5 py-3 bg-[#f0f2f5] mx-4 mt-4 rounded-xl">
               <div className="flex items-center gap-2 mb-1">
-                <img src={post.cat.avatar} className="w-7 h-7 rounded-full object-cover" alt="" />
-                <span className="font-semibold text-sm text-[#050505]">{post.cat.name}</span>
+                <img src={post.cat?.avatar || '/favicon.svg'} className="w-7 h-7 rounded-full object-cover" alt="" />
+                <span className="font-semibold text-sm text-[#050505]">{post.cat?.name || '—'}</span>
               </div>
               <p className="text-sm text-[#65676B] line-clamp-2">{post.content}</p>
             </div>

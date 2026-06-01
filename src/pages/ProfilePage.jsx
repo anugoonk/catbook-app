@@ -48,8 +48,8 @@ const ProfilePage = () => {
 
   const [activeTab, setActiveTab] = useState('โพสต์');
   const [posts, setPosts] = useState([]);
-  const [coverImg, setCoverImg] = useState(currentUser.activeCat.cover);
-  const [avatarImg, setAvatarImg] = useState(currentUser.activeCat.avatar);
+  const [coverImg, setCoverImg] = useState(currentUser.activeCat?.cover || '');
+  const [avatarImg, setAvatarImg] = useState(currentUser.activeCat?.avatar || '');
   const [toast, showToast] = useToast();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', breed: '', bio: '' });
@@ -69,10 +69,10 @@ const ProfilePage = () => {
   useEffect(() => {
     setActiveTab('โพสต์');
     if (isOwnProfile) {
-      setCoverImg(currentUser.activeCat.cover);
-      setAvatarImg(currentUser.activeCat.avatar);
+      setCoverImg(currentUser.activeCat?.cover || '');
+      setAvatarImg(currentUser.activeCat?.avatar || '');
     }
-  }, [viewedCat?.id, currentUser.activeCat.avatar, currentUser.activeCat.cover, isOwnProfile]);
+  }, [viewedCat?.id, currentUser.activeCat?.avatar, currentUser.activeCat?.cover, isOwnProfile]);
 
   useEffect(() => {
     if (isOwnProfile || !profileUid) return;
