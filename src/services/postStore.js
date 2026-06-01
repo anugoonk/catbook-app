@@ -3,8 +3,7 @@ import {
   onSnapshot, serverTimestamp, increment, setDoc,
   getDoc, query, orderBy, where,
 } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { db, storage } from '../firebase'
+import { db } from '../firebase'
 
 function formatTime(ts) {
   if (!ts?.toDate) return 'เมื่อกี้นี้'
@@ -41,17 +40,11 @@ export function subscribePosts(onUpdate) {
   })
 }
 
-export async function createPost({ content, feeling, imageFile, currentUser }) {
-  let imageUrl = null
-  if (imageFile) {
-    const storageRef = ref(storage, `posts/${Date.now()}_${imageFile.name}`)
-    const uploaded = await uploadBytes(storageRef, imageFile)
-    imageUrl = await getDownloadURL(uploaded.ref)
-  }
+export async function createPost({ content, feeling, imageUrl, currentUser }) {
   await addDoc(collection(db, 'posts'), {
     content,
     feeling: feeling || null,
-    imageUrl,
+    imageUrl: imageUrl || null,
     authorId: currentUser.uid,
     authorName: currentUser.activeCat?.name || currentUser.name,
     authorAvatar: currentUser.activeCat?.avatar || currentUser.avatar || '',

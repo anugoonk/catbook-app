@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Image as ImageIcon, UserPlus, Smile, Upload } from 'lucide-react';
 import { mockUsers } from '../data/mockData';
 import { useUser } from '../context/UserContext';
@@ -16,6 +16,25 @@ const FEELINGS = [
   { emoji: '🙀', label: 'ตกใจ' },
   { emoji: '😿', label: 'เศร้า' },
 ];
+
+function compressImage(file, maxW = 1200, maxH = 900, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxW / img.width, maxH / img.height);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
 
 /* Preview grid layout for up to 4 images */
 const PreviewGrid = ({ images, onRemove }) => {
@@ -85,7 +104,7 @@ const CreatePostModal = ({ isOpen, onClose, initialPanel = null }) => {
   const [text, setText] = useState('');
   const [activePanel, setActivePanel] = useState(null);
   const [imagePreviews, setImagePreviews] = useState([]);
-  const [imageFiles, setImageFiles] = useState([]);
+  const [compressing, setCompressing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [taggedCats, setTaggedCats] = useState([]);
   const [tagSearch, setTagSearch] = useState('');
@@ -130,20 +149,23 @@ const CreatePostModal = ({ isOpen, onClose, initialPanel = null }) => {
 
   const canPost = text.trim() || imagePreviews.length > 0;
 
-  const addImages = (files) => {
+  const addImages = useCallback(async (files) => {
     const file = Array.from(files).find(f => f.type.startsWith('image/'));
     if (!file) return;
-    setImagePreviews(prev => { prev.forEach(u => { if (u.startsWith('blob:')) URL.revokeObjectURL(u); }); return [URL.createObjectURL(file)]; });
-    setImageFiles([file]);
-    setActivePanel('photo');
-  };
+    setCompressing(true);
+    try {
+      const b64 = await compressImage(file);
+      setImagePreviews([b64]);
+      setActivePanel('photo');
+    } catch {
+      // ignore compress error
+    } finally {
+      setCompressing(false);
+    }
+  }, []);
 
   const removeImage = (idx) => {
-    setImagePreviews(prev => {
-      if (prev[idx]?.startsWith('blob:')) URL.revokeObjectURL(prev[idx]);
-      return prev.filter((_, i) => i !== idx);
-    });
-    setImageFiles(prev => prev.filter((_, i) => i !== idx));
+    setImagePreviews(prev => prev.filter((_, i) => i !== idx));
   };
 
   const handleImageChange = (e) => {
@@ -188,7 +210,7 @@ const CreatePostModal = ({ isOpen, onClose, initialPanel = null }) => {
       await createPost({
         content,
         feeling: selectedFeeling ? `${selectedFeeling.emoji} ${selectedFeeling.label}` : null,
-        imageFile: imageFiles[0] || null,
+        imageUrl: imagePreviews[0] || null,
         currentUser,
       });
 
@@ -471,14 +493,14 @@ const CreatePostModal = ({ isOpen, onClose, initialPanel = null }) => {
 
           <button
             onClick={handlePost}
-            disabled={!canPost || posting}
+            disabled={!canPost || posting || compressing}
             className={`w-full py-2.5 rounded-lg font-bold text-[15px] transition-colors
               disabled:bg-[#e4e6eb] disabled:text-[#bcc0c4] disabled:cursor-not-allowed
               ${meowMode
                 ? 'enabled:bg-purple-500 enabled:hover:bg-purple-600 enabled:text-white'
                 : 'enabled:bg-[#4267B2] enabled:hover:bg-[#3b5998] enabled:text-white'}`}
           >
-            {posting ? 'กำลังโพสต์...' : meowMode ? '🐾 โพสต์เป็นภาษาแมว' : 'โพสต์'}
+            {compressing ? 'กำลังบีบอัดรูป...' : posting ? 'กำลังโพสต์...' : meowMode ? '🐾 โพสต์เป็นภาษาแมว' : 'โพสต์'}
           </button>
         </div>
       </div>
