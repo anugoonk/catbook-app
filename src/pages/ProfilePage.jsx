@@ -482,13 +482,34 @@ const ProfilePage = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">สายพันธุ์</label>
-                <input
-                  type="text"
+                <select
                   value={editForm.breed}
                   onChange={e => setEditForm(f => ({ ...f, breed: e.target.value }))}
-                  placeholder="เช่น เปอร์เซีย, Scottish Fold"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#4267B2]/30 focus:border-[#4267B2] transition-all"
-                />
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#4267B2]/30 focus:border-[#4267B2] transition-all bg-white"
+                >
+                  <option value="">— เลือกสายพันธุ์ —</option>
+                  {[
+                    'สก็อตติชโฟลด์ (Scottish Fold)',
+                    'บริติชชอร์ตแฮร์ (British Shorthair)',
+                    'เปอร์เซีย (Persian)',
+                    'แร็กดอลล์ (Ragdoll)',
+                    'เมนคูน (Maine Coon)',
+                    'วิเชียรมาศ (Siamese)',
+                    'อเมริกันชอร์ตแฮร์ (American Shorthair)',
+                    'เอ็กโซติกชอร์ตแฮร์ (Exotic Shorthair)',
+                    'เบงกอล (Bengal)',
+                    'มันช์กิน (Munchkin)',
+                    'นอร์วีเจียนฟอเรสต์แคต (Norwegian Forest Cat)',
+                    'รัสเซียนบลู (Russian Blue)',
+                    'เบอร์แมน (Birman)',
+                    'อบิสซิเนียน (Abyssinian)',
+                    'พม่า (Burmese)',
+                    'ขาวมณี (Khao Manee)',
+                    'โคราช (Korat)',
+                    'แมวไทย (Mixed Thai)',
+                    'ไม่ทราบสายพันธุ์',
+                  ].map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
               </div>
 
               <div>
