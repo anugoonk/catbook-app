@@ -7,9 +7,11 @@ import { db } from '../firebase'
 
 const col = 'events'
 
+const onErr = (err) => console.error('[Firestore]', err)
+
 export function subscribeEvents(onUpdate) {
   const q = query(collection(db, col), orderBy('createdAt', 'desc'))
-  return onSnapshot(q, snap => onUpdate(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+  return onSnapshot(q, snap => onUpdate(snap.docs.map(d => ({ id: d.id, ...d.data() }))), onErr)
 }
 
 export async function createEvent(data) {

@@ -28,14 +28,16 @@ export async function getOrder(orderId) {
   }
 }
 
+const onErr = (err) => console.error('[Firestore]', err)
+
 export function subscribeUserOrders(uid, onUpdate) {
   const q = query(collection(db, col), where('buyerUid', '==', uid), orderBy('createdAt', 'desc'))
-  return onSnapshot(q, snap => onUpdate(snap.docs.map(formatOrder)))
+  return onSnapshot(q, snap => onUpdate(snap.docs.map(formatOrder)), onErr)
 }
 
 export function subscribeAllOrders(onUpdate) {
   const q = query(collection(db, col), orderBy('createdAt', 'desc'))
-  return onSnapshot(q, snap => onUpdate(snap.docs.map(formatOrder)))
+  return onSnapshot(q, snap => onUpdate(snap.docs.map(formatOrder)), onErr)
 }
 
 export async function updateOrder(orderId, fields) {

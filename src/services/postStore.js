@@ -33,11 +33,11 @@ function formatPost(snap) {
   }
 }
 
+const onErr = (err) => console.error('[Firestore]', err)
+
 export function subscribePosts(onUpdate) {
   const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'))
-  return onSnapshot(q, (snap) => {
-    onUpdate(snap.docs.map(formatPost))
-  })
+  return onSnapshot(q, (snap) => { onUpdate(snap.docs.map(formatPost)) }, onErr)
 }
 
 export async function createPost({ content, feeling, imageUrl, currentUser }) {
@@ -94,7 +94,7 @@ export function subscribeComments(postId, uid, onUpdate) {
         isOwn: data.authorId === uid,
       }
     }))
-  })
+  }, onErr)
 }
 
 export function subscribePostsByUser(uid, onUpdate) {
@@ -103,7 +103,7 @@ export function subscribePostsByUser(uid, onUpdate) {
     where('authorId', '==', uid),
     orderBy('createdAt', 'desc')
   )
-  return onSnapshot(q, snap => onUpdate(snap.docs.map(formatPost)))
+  return onSnapshot(q, snap => onUpdate(snap.docs.map(formatPost)), onErr)
 }
 
 export async function addComment(postId, { text, meow, currentUser }) {

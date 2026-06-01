@@ -4,11 +4,11 @@ import {
 } from 'firebase/firestore'
 import { db } from '../firebase'
 
+const onErr = (err) => console.error('[Firestore]', err)
+
 export function subscribeListings(onUpdate) {
   const q = query(collection(db, 'listings'), orderBy('createdAt', 'desc'))
-  return onSnapshot(q, snap => {
-    onUpdate(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-  })
+  return onSnapshot(q, snap => { onUpdate(snap.docs.map(d => ({ id: d.id, ...d.data() }))) }, onErr)
 }
 
 export async function createListing(data) {
