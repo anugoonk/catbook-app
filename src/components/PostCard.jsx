@@ -91,7 +91,6 @@ const PostCard = ({ post, onDeleted }) => {
   const [animKey, setAnimKey] = useState(0);
   const [showReactions, setShowReactions] = useState(false);
   const [comments, setComments] = useState([]);
-  const [commentsLoaded, setCommentsLoaded] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [showComments, setShowComments] = useState(false);
   const [commentCount, setCommentCount] = useState(post.commentCount ?? post.comments ?? 0);
@@ -194,14 +193,13 @@ const PostCard = ({ post, onDeleted }) => {
   };
 
   useEffect(() => {
-    if (!showComments || commentsLoaded) return;
-    setCommentsLoaded(true);
+    if (!showComments) return;
     const unsub = subscribeComments(post.id, currentUser?.uid, (data) => {
       setComments(data);
       setCommentCount(data.length);
     });
     return unsub;
-  }, [showComments, commentsLoaded, post.id, currentUser?.uid]);
+  }, [showComments, post.id, currentUser?.uid]);
 
   /* ── Comment handlers ── */
   const toggleComments = () => {
