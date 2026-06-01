@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Store, ArrowLeft, Package } from 'lucide-react';
 import { useUser } from '../context/UserContext';
-import { sellerApi } from '../services/commerceApi';
+import { subscribeListings, createListing, updateListing, deleteListing } from '../services/listingStore';
 import Toast from '../components/Toast';
 import useToast from '../hooks/useToast';
 
@@ -165,21 +165,17 @@ const SellerDashboardPage = () => {
 
   const isSeller = currentUser?.role === 'SELLER' || currentUser?.isAdmin;
 
-  const loadProducts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await sellerApi.products();
-      setProducts(res.products || []);
-    } catch {
-      showToast('โหลดสินค้าไม่สำเร็จ');
-    } finally {
-      setLoading(false);
-    }
-  }, [showToast]);
+  const loadProducts = useCallback(() => {}, []);
 
   useEffect(() => {
-    if (isSeller) loadProducts();
-  }, [isSeller, loadProducts]);
+    if (!isSeller || !currentUser?.uid) return;
+    setLoading(true);
+    const unsub = subscribeListings((all) => {
+      setProducts(all.filter(p => p.sellerUid === currentUser.uid));
+      setLoading(false);
+    });
+    return unsub;
+  }, [isSeller, currentUser?.uid]);
 
   const openCreate = () => { setFormProduct(null); setFormErrors({}); setIsFormOpen(true); };
   const openEdit = (p) => { setFormProduct(p); setFormErrors({}); setIsFormOpen(true); };
@@ -201,9 +197,20 @@ const SellerDashboardPage = () => {
     const payload = { ...form, price: Number(form.price), stock: Number(form.stock) };
     setFormSaving(true);
     try {
-      if (formProduct) await sellerApi.updateProduct(formProduct.id, payload);
-      else await sellerApi.createProduct(payload);
-      await loadProducts();
+      if (formProduct) {
+        await updateListing(formProduct.id, payload);
+      } else {
+        await createListing({
+          ...payload,
+          sellerUid: currentUser.uid,
+          seller: {
+            id: currentUser.uid,
+            uid: currentUser.uid,
+            name: currentUser.activeCat?.name || currentUser.name,
+            avatar: currentUser.activeCat?.avatar || '',
+          },
+        });
+      }
       showToast(formProduct ? 'อัปเดตสินค้าแล้ว' : 'เพิ่มสินค้าแล้ว');
       closeForm();
     } catch (err) {
@@ -213,23 +220,26 @@ const SellerDashboardPage = () => {
     }
   };
 
-  const archiveProduct = (id) => {
-    sellerApi.archiveProduct(id)
-      .then(({ product }) => {
-        setProducts(prev => prev.map(p => p.id === id ? product : p));
-        setConfirmDelete(null);
-        showToast('Archive สินค้าแล้ว');
-      })
-      .catch(() => showToast('Archive ไม่สำเร็จ'));
+  const archiveProduct = async (id) => {
+    try {
+      await deleteListing(id);
+      setConfirmDelete(null);
+      showToast('ลบสินค้าแล้ว');
+    } catch {
+      showToast('ลบสินค้าไม่สำเร็จ');
+    }
   };
 
-  const adjustStock = (id, quantity) => {
-    sellerApi.adjustStock(id, { mode: 'delta', quantity, type: quantity > 0 ? 'in' : 'adjustment', note: 'Seller quick adjust' })
-      .then(({ product }) => {
-        setProducts(prev => prev.map(p => p.id === id ? product : p));
-        showToast(quantity > 0 ? 'เพิ่มสต็อกแล้ว' : 'ลดสต็อกแล้ว');
-      })
-      .catch(() => showToast('ปรับสต็อกไม่สำเร็จ'));
+  const adjustStock = async (id, quantity) => {
+    const item = products.find(p => p.id === id);
+    if (!item) return;
+    const newStock = Math.max(0, (item.stock || 0) + quantity);
+    try {
+      await updateListing(id, { stock: newStock });
+      showToast(quantity > 0 ? 'เพิ่มสต็อกแล้ว' : 'ลดสต็อกแล้ว');
+    } catch {
+      showToast('ปรับสต็อกไม่สำเร็จ');
+    }
   };
 
   const filtered = useMemo(() => {

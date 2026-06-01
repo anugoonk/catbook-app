@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { adminApi, orderApi } from '../services/commerceApi';
 import { useUser } from './UserContext';
+import { subscribeUserOrders, updateOrder, cancelOrder as cancelOrderFirebase } from '../services/orderStore';
 
 const OrderContext = createContext(null);
 
@@ -10,83 +10,51 @@ export const OrderProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const refreshOrders = useCallback(async () => {
-    if (!currentUser) {
-      setOrders([]);
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await orderApi.list();
-      setOrders(response.orders || []);
-      setError('');
-    } catch {
-      setError('โหลดคำสั่งซื้อไม่สำเร็จ');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentUser]);
-
   useEffect(() => {
-    refreshOrders();
-  }, [refreshOrders]);
+    if (!currentUser?.uid) { setOrders([]); return; }
+    setIsLoading(true);
+    const unsub = subscribeUserOrders(currentUser.uid, (data) => {
+      setOrders(data);
+      setIsLoading(false);
+    });
+    return unsub;
+  }, [currentUser?.uid]);
 
-  const addOrder = (order) => setOrders(prev => [order, ...prev]);
+  const refreshOrders = useCallback(() => {}, []);
+  const addOrder = useCallback(() => {}, []);
+
   const updateOrderStatus = async (id, status) => {
     try {
-      const response = await adminApi.updateOrderStatus(id, status);
-      setOrders(prev => prev.map(o => o.id === id ? response.order : o));
+      await updateOrder(id, { status });
       setError('');
-      return response.order;
-    } catch {
-      setError('อัปเดตสถานะคำสั่งซื้อไม่สำเร็จ');
-      return null;
-    }
+    } catch { setError('อัปเดตสถานะคำสั่งซื้อไม่สำเร็จ'); }
   };
 
-  const updateOrder = async (id, payload) => {
+  const updateOrderFn = async (id, payload) => {
     try {
-      const response = await adminApi.updateOrder(id, payload);
-      setOrders(prev => prev.map(o => o.id === id ? response.order : o));
+      await updateOrder(id, payload);
       setError('');
-      return response.order;
-    } catch {
-      setError('อัปเดตคำสั่งซื้อไม่สำเร็จ');
-      return null;
-    }
+    } catch { setError('อัปเดตคำสั่งซื้อไม่สำเร็จ'); }
   };
 
-  const cancelOrder = async (id, reason) => {
+  const cancelOrderFn = async (id, reason) => {
     try {
-      const response = await adminApi.cancelOrder(id, reason);
-      setOrders(prev => prev.map(o => o.id === id ? response.order : o));
+      await cancelOrderFirebase(id, reason);
       setError('');
-      return response.order;
-    } catch {
-      setError('ยกเลิกคำสั่งซื้อไม่สำเร็จ');
-      return null;
-    }
+    } catch { setError('ยกเลิกคำสั่งซื้อไม่สำเร็จ'); }
   };
 
-  const applyPaymentAction = async (id, action, payload = {}) => {
-    try {
-      const response = await adminApi[action](id, payload);
-      setOrders(prev => prev.map(o => o.id === id ? response.order : o));
-      setError('');
-      return response.order;
-    } catch {
-      setError('อัปเดตสถานะชำระเงินไม่สำเร็จ');
-      return null;
-    }
-  };
-
-  const markPaymentPaid = (id, payload = {}) => applyPaymentAction(id, 'markPaymentPaid', payload);
-  const markPaymentFailed = (id, payload = {}) => applyPaymentAction(id, 'markPaymentFailed', payload);
-  const refundPayment = (id, payload = {}) => applyPaymentAction(id, 'refundPayment', payload);
+  const markPaymentPaid = (id) => updateOrderFn(id, { paymentStatus: 'paid' });
+  const markPaymentFailed = (id) => updateOrderFn(id, { paymentStatus: 'failed' });
+  const refundPayment = (id) => updateOrderFn(id, { paymentStatus: 'refunded' });
 
   return (
-    <OrderContext.Provider value={{ orders, addOrder, updateOrderStatus, updateOrder, cancelOrder, markPaymentPaid, markPaymentFailed, refundPayment, refreshOrders, isLoading, error }}>
+    <OrderContext.Provider value={{
+      orders, addOrder, updateOrderStatus,
+      updateOrder: updateOrderFn, cancelOrder: cancelOrderFn,
+      markPaymentPaid, markPaymentFailed, refundPayment,
+      refreshOrders, isLoading, error,
+    }}>
       {children}
     </OrderContext.Provider>
   );

@@ -5,6 +5,7 @@ import {
   Crown, Search, AlertTriangle, Package,
 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
+import { subscribeAllOrders, updateOrder as updateOrderFirebase, cancelOrder as cancelOrderFirebase } from '../services/orderStore';
 import { adminApi } from '../services/commerceApi';
 import { getAllUsers, setUserRole, setUserStatus, deleteUserDoc } from '../services/userStore';
 import { db } from '../firebase';
@@ -291,14 +292,7 @@ const AdminDashboardPage = () => {
     }
   }, []);
 
-  const loadOrders = useCallback(async () => {
-    try {
-      const response = await adminApi.orders();
-      setOrders(response.orders || []);
-    } catch {
-      showToast('Unable to load admin orders');
-    }
-  }, [showToast]);
+  const loadOrders = useCallback(() => {}, []);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -347,15 +341,15 @@ const AdminDashboardPage = () => {
   }, []);
 
   useEffect(() => {
-    if (currentUser?.isAdmin) {
-      loadMarket();
-      loadOrders();
-      loadUsers();
-      loadPosts();
-      loadLostCats();
-      loadActivity();
-    }
-  }, [currentUser, loadMarket, loadOrders, loadUsers, loadPosts, loadLostCats, loadActivity]);
+    if (!currentUser?.isAdmin) return;
+    loadMarket();
+    loadUsers();
+    loadPosts();
+    loadLostCats();
+    loadActivity();
+    const unsub = subscribeAllOrders(setOrders);
+    return unsub;
+  }, [currentUser?.isAdmin, loadMarket, loadUsers, loadPosts, loadLostCats, loadActivity]);
 
   useEffect(() => {
     setTrackingDrafts(prev => Object.fromEntries(orders.map(order => [order.id, prev[order.id] ?? order.trackingNo ?? ''])));
@@ -499,9 +493,8 @@ const AdminDashboardPage = () => {
   };
   const updateOrder = async (orderId, payload) => {
     try {
-      const response = await adminApi.updateOrder(orderId, payload);
-      setOrders(prev => prev.map(order => order.id === orderId ? response.order : order));
-      return response.order;
+      await updateOrderFirebase(orderId, payload);
+      return { id: orderId, ...payload };
     } catch {
       return null;
     }
@@ -509,27 +502,16 @@ const AdminDashboardPage = () => {
 
   const cancelOrder = async (orderId, reason) => {
     try {
-      const response = await adminApi.cancelOrder(orderId, reason);
-      setOrders(prev => prev.map(order => order.id === orderId ? response.order : order));
-      return response.order;
+      await cancelOrderFirebase(orderId, reason);
+      return { id: orderId, status: 'cancelled', cancelReason: reason };
     } catch {
       return null;
     }
   };
 
-  const runAdminPaymentAction = async (orderId, action, payload = {}) => {
-    try {
-      const response = await adminApi[action](orderId, payload);
-      setOrders(prev => prev.map(order => order.id === orderId ? response.order : order));
-      return response.order;
-    } catch {
-      return null;
-    }
-  };
-
-  const markPaymentPaid = (orderId, payload) => runAdminPaymentAction(orderId, 'markPaymentPaid', payload);
-  const markPaymentFailed = (orderId, payload) => runAdminPaymentAction(orderId, 'markPaymentFailed', payload);
-  const refundPayment = (orderId, payload) => runAdminPaymentAction(orderId, 'refundPayment', payload);
+  const markPaymentPaid = (orderId) => updateOrder(orderId, { paymentStatus: 'paid' });
+  const markPaymentFailed = (orderId) => updateOrder(orderId, { paymentStatus: 'failed' });
+  const refundPayment = (orderId) => updateOrder(orderId, { paymentStatus: 'refunded' });
 
   const updateOrderField = async (orderId, payload, successMessage = 'อัปเดตคำสั่งซื้อแล้ว') => {
     const updated = await updateOrder(orderId, payload);

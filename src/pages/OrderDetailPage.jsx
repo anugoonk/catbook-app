@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CreditCard, MapPin, Package, Truck } from 'lucide-react';
-import { orderApi } from '../services/commerceApi';
+import { getOrder } from '../services/orderStore';
 
 const ORDER_STEPS = [
   { id: 'pending', label: 'รอรับคำสั่งซื้อ' },
@@ -79,11 +79,11 @@ const OrderDetailPage = () => {
   useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
-    orderApi.detail(orderId)
-      .then(({ order: detail }) => {
+    getOrder(orderId)
+      .then((detail) => {
         if (isMounted) {
-          setOrder(detail);
-          setError('');
+          if (detail) setOrder(detail);
+          else setError('ไม่พบคำสั่งซื้อ');
         }
       })
       .catch(() => {

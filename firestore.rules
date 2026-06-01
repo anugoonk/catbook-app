@@ -53,6 +53,21 @@ service cloud.firestore {
         && resource.data.sellerUid == request.auth.uid;
     }
 
+    // Carts: own cart only
+    match /carts/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Orders: buyer can read own orders, create new, admin can read all
+    match /orders/{orderId} {
+      allow read: if request.auth != null
+        && (resource.data.buyerUid == request.auth.uid || request.auth.token.email in ['anugoonk@gmail.com']);
+      allow create: if request.auth != null
+        && request.resource.data.buyerUid == request.auth.uid;
+      allow update: if request.auth != null
+        && (resource.data.buyerUid == request.auth.uid || request.auth.token.email in ['anugoonk@gmail.com']);
+    }
+
     // Chats/messages: participants only
     match /chats/{chatId} {
       allow read, write: if request.auth != null

@@ -2,18 +2,25 @@ import { useEffect, useState } from 'react';
 import { X, ChevronRight, ChevronLeft, Check, Truck } from 'lucide-react';
 import PawIcon from './PawIcon';
 import { useCart } from '../context/CartContext';
-import { useOrders } from '../context/OrderContext';
-import { checkoutApi } from '../services/commerceApi';
+import { useUser } from '../context/UserContext';
 import { trackMarketingEvent } from '../services/marketingTracking';
+import { createOrder } from '../services/orderStore';
 
 const STEPS = ['ตรวจสอบออเดอร์', 'ที่อยู่จัดส่ง', 'ชำระเงิน', 'สำเร็จ'];
 
 const PAYMENTS = [
-  { id: 'promptpay', label: 'PromptPay QR', icon: '📱', desc: 'สแกนจ่ายด้วยแอปธนาคาร' },
-  { id: 'card',      label: 'บัตรเครดิต/เดบิต', icon: '💳', desc: 'Visa, Mastercard, JCB' },
-  { id: 'bank_transfer', label: 'โอนผ่านธนาคาร', icon: '🏦', desc: 'รับเลขบัญชีและ reference สำหรับโอนเงิน' },
-  { id: 'cod',       label: 'เก็บเงินปลายทาง',  icon: '💰', desc: 'ชำระเมื่อได้รับสินค้า' },
+  { id: 'promptpay',     label: 'PromptPay QR',       icon: '📱', desc: 'สแกนจ่ายด้วยแอปธนาคาร' },
+  { id: 'card',          label: 'บัตรเครดิต/เดบิต',  icon: '💳', desc: 'Visa, Mastercard, JCB' },
+  { id: 'bank_transfer', label: 'โอนผ่านธนาคาร',      icon: '🏦', desc: 'โอนเงินผ่านธนาคารตามข้อมูลที่ผู้ขายแจ้ง' },
+  { id: 'cod',           label: 'เก็บเงินปลายทาง',    icon: '💰', desc: 'ชำระเมื่อได้รับสินค้า' },
 ];
+
+const PAYMENT_INSTRUCTION = {
+  promptpay:     'ผู้ขายจะติดต่อแจ้ง PromptPay หลังยืนยันออเดอร์',
+  card:          'ผู้ขายจะติดต่อแจ้งขั้นตอนชำระบัตรหลังยืนยันออเดอร์',
+  bank_transfer: 'ผู้ขายจะติดต่อแจ้งเลขบัญชีสำหรับโอนเงิน',
+  cod:           'ชำระเงินสดเมื่อได้รับสินค้า ไม่ต้องโอนล่วงหน้า',
+};
 
 const CAT_EMOJI = {
   'อาหารแมว': '🐟', 'ทรายแมว': '🪣', 'ของเล่น': '🎾',
@@ -24,28 +31,25 @@ const inputCls = (err) =>
   `w-full bg-[#f0f2f5] rounded-xl px-3 py-2.5 text-[14px] outline-none focus:ring-2 focus:ring-[#4267B2]/20 transition-all resize-none ${err ? 'ring-2 ring-red-300 bg-red-50' : ''}`;
 
 const CheckoutModal = ({ onClose }) => {
-  const { items, total, count, refreshCart } = useCart();
-  const { addOrder, refreshOrders } = useOrders();
-  const [step, setStep]       = useState(0);
-  const [form, setForm]       = useState({ name: '', phone: '', address: '', note: '' });
-  const [payment, setPayment] = useState('promptpay');
-  const [errors, setErrors]   = useState({});
+  const { items, total, count, clear } = useCart();
+  const { currentUser } = useUser();
+  const [step, setStep]         = useState(0);
+  const [form, setForm]         = useState({ name: '', phone: '', address: '', note: '' });
+  const [payment, setPayment]   = useState('promptpay');
+  const [errors, setErrors]     = useState({});
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [orderId, setOrderId] = useState('');
+  const [orderId, setOrderId]   = useState('');
   const [savedTotal, setSavedTotal] = useState(total);
-  const [paymentInstruction, setPaymentInstruction] = useState(null);
 
   const set = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }));
 
   useEffect(() => {
     trackMarketingEvent('begin_checkout', {
-      value: total,
-      currency: 'THB',
-      item_count: count,
+      value: total, currency: 'THB', item_count: count,
       items: items.map(({ product, qty }) => ({ id: product.id, sku: product.sku || '', qty })),
     });
-  }, [count, items, total]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const validate = () => {
     const e = {};
@@ -62,24 +66,36 @@ const CheckoutModal = ({ onClose }) => {
       setIsSubmitting(true);
       setSubmitError('');
       try {
-        const result = await checkoutApi.placeOrder({
-          shippingAddress: form,
-          payment,
+        const paymentLabel = PAYMENTS.find(p => p.id === payment)?.label ?? payment;
+        const orderItems = items.map(({ product, qty }) => ({
+          product,
+          qty,
+          unitPrice: product.price,
+          lineTotal: product.price * qty,
+        }));
+        const id = await createOrder(currentUser.uid, {
+          buyerName: currentUser.name || currentUser.activeCat?.name || '',
+          items: orderItems,
+          total,
+          count,
+          paymentMethod: payment,
+          payment: paymentLabel,
+          paymentStatus: payment === 'cod' ? 'pending_cod' : 'pending',
+          status: 'pending',
+          shippingStatus: 'pending',
+          trackingNo: '',
+          address: form,
+          cancelReason: '',
         });
-        setSavedTotal(result.order.total);
-        setOrderId(result.order.id);
-        setPaymentInstruction(result.order.paymentInstruction || null);
+        setSavedTotal(total);
+        setOrderId(id);
         trackMarketingEvent('purchase', {
-          transaction_id: result.order.id,
-          value: result.order.total,
-          currency: 'THB',
-          payment_method: payment,
-          item_count: result.order.count,
+          transaction_id: id, value: total, currency: 'THB',
+          payment_method: payment, item_count: count,
         });
-        addOrder(result.order);
-        await Promise.all([refreshCart(), refreshOrders()]);
-      } catch (error) {
-        setSubmitError(error.message || 'ยืนยันคำสั่งซื้อไม่สำเร็จ');
+        await clear();
+      } catch (err) {
+        setSubmitError(err.message || 'ยืนยันคำสั่งซื้อไม่สำเร็จ');
         setIsSubmitting(false);
         return;
       }
@@ -202,9 +218,7 @@ const CheckoutModal = ({ onClose }) => {
                 <p className="text-xs text-amber-700">จัดส่งโดย <strong>แมวเดิน</strong> 🐱 ภายใน 3–5 วันทำการ · ฟรีทุกออเดอร์</p>
               </div>
               {submitError && (
-                <div className="bg-red-50 text-red-600 rounded-xl p-3 text-xs font-semibold">
-                  {submitError}
-                </div>
+                <div className="bg-red-50 text-red-600 rounded-xl p-3 text-xs font-semibold">{submitError}</div>
               )}
             </div>
           )}
@@ -218,60 +232,19 @@ const CheckoutModal = ({ onClose }) => {
                 <p className="text-gray-500 text-sm mt-0.5">ขอบคุณที่ช้อปให้น้องแมว 🐾</p>
               </div>
 
-              {/* PromptPay QR */}
-              {paymentInstruction?.type === 'promptpay' && (
-                <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
-                  <p className="text-sm font-black text-blue-700 mb-2">📱 สแกน PromptPay เพื่อชำระเงิน</p>
-                  <img
-                    src={paymentInstruction.qrDataUrl}
-                    alt="PromptPay QR Code"
-                    className="w-48 h-48 mx-auto rounded-xl border-4 border-white shadow"
-                  />
-                  <p className="text-xs text-gray-500 mt-2">
-                    ยอดชำระ <span className="font-black text-gray-800">{savedTotal.toLocaleString()} ฿</span>
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    เบอร์ PromptPay: {paymentInstruction.promptpayNumber}
-                  </p>
-                  <p className="text-[11px] text-amber-600 mt-1 font-medium">
-                    QR หมดอายุใน 15 นาที · Ref: {paymentInstruction.referenceNo}
-                  </p>
-                </div>
-              )}
-
-              {/* Bank Transfer */}
-              {paymentInstruction?.type === 'bank_transfer' && (
-                <div className="bg-green-50 rounded-2xl p-4 border border-green-100 text-left space-y-1.5">
-                  <p className="text-sm font-black text-green-700 mb-2">🏦 ข้อมูลสำหรับโอนเงิน</p>
-                  {[
-                    ['ธนาคาร', paymentInstruction.bankName],
-                    ['เลขบัญชี', paymentInstruction.accountNo],
-                    ['ชื่อบัญชี', paymentInstruction.accountName],
-                    ['ยอดโอน', `${savedTotal.toLocaleString()} ฿`],
-                    ['Ref', paymentInstruction.referenceNo],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex justify-between text-sm">
-                      <span className="text-gray-500">{label}</span>
-                      <span className="font-semibold text-gray-800 text-right">{value}</span>
-                    </div>
-                  ))}
-                  <p className="text-[11px] text-amber-600 mt-1 font-medium">
-                    กรุณาใส่ Ref ในช่องหมายเหตุการโอน
-                  </p>
-                </div>
-              )}
-
-              {/* COD / Card */}
-              {(!paymentInstruction || paymentInstruction.type === 'cod' || paymentInstruction.type === 'card') && (
-                <div className="bg-gray-50 rounded-2xl p-3 text-sm text-gray-600 border border-gray-100">
-                  ชำระด้วย <span className="font-semibold">{payLabel}</span>
-                </div>
-              )}
+              <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100 text-left">
+                <p className="text-xs font-bold text-blue-700 mb-1">💡 วิธีชำระเงิน: {payLabel}</p>
+                <p className="text-xs text-gray-600">{PAYMENT_INSTRUCTION[payment]}</p>
+              </div>
 
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 text-left space-y-2 border border-blue-100">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">หมายเลขออเดอร์</span>
-                  <span className="font-black text-[#4267B2] text-xs">{orderId}</span>
+                  <span className="font-black text-[#4267B2] text-xs break-all">{orderId}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">ยอดรวม</span>
+                  <span className="font-black text-[#4267B2]">{savedTotal.toLocaleString()} ฿</span>
                 </div>
                 <div className="flex justify-between text-sm gap-4">
                   <span className="text-gray-500 shrink-0">ที่อยู่จัดส่ง</span>
