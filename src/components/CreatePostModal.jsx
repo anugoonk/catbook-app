@@ -143,7 +143,6 @@ const CreatePostModal = ({ isOpen, onClose, initialPanel = null }) => {
       setText('');
       setActivePanel(null);
       setImagePreviews([]);
-      setImageFiles([]);
       setIsDragging(false);
       setTaggedCats([]);
       setTagSearch('');
