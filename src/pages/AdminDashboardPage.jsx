@@ -1081,185 +1081,170 @@ const AdminDashboardPage = () => {
         {/* ─── Marketplace ─── */}
         {tab === 'marketplace' && (
           <div>
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-              <h1 className="text-[22px] font-bold text-[#050505]">
-                จัดการตลาดนัด <span className="text-gray-400 text-[16px] font-normal">({filteredMarket.length} รายการ)</span>
-              </h1>
-              <div className="flex items-center gap-2 shrink-0 sm:ml-4 overflow-x-auto pb-1">
-                <button
-                  onClick={openCreateProduct}
-                  className="bg-[#4267B2] text-white rounded-xl px-4 py-2.5 text-[13px] font-black hover:bg-[#3b5998] transition-colors"
-                >
-                  Add Product
-                </button>
-                <button
-                  onClick={loadMarket}
-                  disabled={marketLoading}
-                  className="bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-[13px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                >
-                  {marketLoading ? 'กำลังโหลด...' : 'Refresh'}
-                </button>
-                <div className="bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-right">
-                  <p className="text-[11px] text-gray-400">มูลค่าสต็อกรวม</p>
-                  <p className="text-[18px] font-bold text-[#050505]">{totalRevenue.toLocaleString()} ฿</p>
-                </div>
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <div>
+                <h1 className="text-[22px] font-bold text-[#050505]">จัดการตลาดนัด</h1>
+                <p className="text-[13px] text-gray-400 mt-0.5">{filteredMarket.length} รายการ · มูลค่าสต็อก <span className="font-bold text-gray-700">{totalRevenue.toLocaleString()} ฿</span></p>
               </div>
+              <button
+                onClick={openCreateProduct}
+                className="flex items-center gap-2 bg-[#4267B2] text-white rounded-xl px-5 py-2.5 text-[14px] font-black hover:bg-[#3b5998] transition-colors shrink-0"
+              >
+                <span className="text-lg leading-none">+</span> เพิ่มสินค้า
+              </button>
             </div>
-            {marketError && (
-              <div className="mb-4 rounded-xl bg-red-50 text-red-600 px-4 py-3 text-sm font-semibold">
-                {marketError}
-              </div>
-            )}
+
+            {/* Low stock alert */}
             {lowStockProducts.length > 0 && (
-              <div className="mb-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">⚠️</span>
                   <div>
-                    <p className="text-sm font-black text-red-700">Low stock alert</p>
-                    <p className="text-xs text-red-600 mt-0.5">
-                      {lowStockProducts.length} products need attention: {lowStockProducts.slice(0, 3).map(product => `${product.sku || product.title} (${product.stock || 0})`).join(', ')}
-                      {lowStockProducts.length > 3 ? '...' : ''}
+                    <p className="text-sm font-black text-amber-800">สต็อกใกล้หมด {lowStockProducts.length} รายการ</p>
+                    <p className="text-xs text-amber-600 mt-0.5 line-clamp-1">
+                      {lowStockProducts.slice(0, 3).map(p => `${p.title} (${p.stock || 0})`).join(' · ')}
+                      {lowStockProducts.length > 3 && ` +${lowStockProducts.length - 3} อีก`}
                     </p>
                   </div>
-                  <button
-                    onClick={() => setMarketStock('low')}
-                    className="self-start sm:self-auto px-3 py-2 rounded-lg bg-white text-red-600 text-[12px] font-bold border border-red-100 hover:bg-red-100"
-                  >
-                    View low stock
-                  </button>
                 </div>
+                <button onClick={() => setMarketStock('low')} className="shrink-0 text-xs font-bold text-amber-700 bg-white border border-amber-200 rounded-lg px-3 py-1.5 hover:bg-amber-100 transition-colors">
+                  ดูทั้งหมด
+                </button>
               </div>
             )}
 
+            {/* Filter bar */}
             <div className="bg-white rounded-xl border border-gray-200 p-3 mb-4">
-              <div className="grid grid-cols-1 md:grid-cols-[minmax(220px,1fr)_auto_auto_auto] gap-3 items-end">
-                <label className="text-[11px] font-bold text-gray-500">
-                  Search products
-                  <div className="relative mt-1">
-                     <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                    <input
-                      value={marketSearch}
-                      onChange={event => setMarketSearch(event.target.value)}
-                      placeholder="SKU, product, brand, category"
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-3 py-2.5 text-[13px] outline-none focus:ring-2 focus:ring-[#4267B2]/25"
-                    />
-                  </div>
-                </label>
-                <FilterSelect value={marketCat} onChange={setMarketCat} label="Category" options={marketCats} />
-                <FilterSelect
-                  value={marketStatus}
-                  onChange={setMarketStatus}
-                  label="Status"
-                  options={[
-                    { value: ALL_FILTER, label: 'All status' },
-                    { value: 'active', label: 'active' },
-                    { value: 'draft', label: 'draft' },
-                    { value: 'archived', label: 'archived' },
-                  ]}
-                />
-                <FilterSelect
-                  value={marketStock}
-                  onChange={setMarketStock}
-                  label="Stock"
-                  options={[
-                    { value: ALL_FILTER, label: 'All stock' },
-                    { value: 'low', label: 'Low stock (<=5)' },
-                    { value: 'out', label: 'Out of stock' },
-                  ]}
-                />
+              <div className="flex flex-wrap gap-2 items-end">
+                <div className="relative flex-1 min-w-[180px]">
+                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                  <input
+                    value={marketSearch}
+                    onChange={e => setMarketSearch(e.target.value)}
+                    placeholder="ค้นหาสินค้า..."
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#4267B2]/25"
+                  />
+                </div>
+                <select value={marketCat} onChange={e => setMarketCat(e.target.value)}
+                  className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-[13px] font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-[#4267B2]/25">
+                  {marketCats.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+                <select value={marketStatus} onChange={e => setMarketStatus(e.target.value)}
+                  className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-[13px] font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-[#4267B2]/25">
+                  <option value={ALL_FILTER}>ทุกสถานะ</option>
+                  <option value="active">วางขาย</option>
+                  <option value="draft">ร่าง</option>
+                  <option value="archived">เก็บถาวร</option>
+                </select>
+                <select value={marketStock} onChange={e => setMarketStock(e.target.value)}
+                  className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-[13px] font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-[#4267B2]/25">
+                  <option value={ALL_FILTER}>ทุกสต็อก</option>
+                  <option value="low">สต็อกต่ำ (≤5)</option>
+                  <option value="out">หมดสต็อก</option>
+                </select>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
-              <table className="w-full min-w-[980px] text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <Th>สินค้า</Th>
-                    <Th>หมวดหมู่</Th>
-                    <Th>ราคา</Th>
-                    <Th>Stock</Th>
-                    <Th>Status</Th>
-                    <Th>ผู้ขาย</Th>
-                    <Th>พิกัด</Th>
-                    <Th>จัดการ</Th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredMarket.map(item => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <img src={item.img} className="w-10 h-10 rounded-lg object-cover shrink-0" alt="" />
-                          <span className="font-medium text-[#050505] line-clamp-2 max-w-[180px] text-[13px]">{item.title}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-[13px]">{item.category}</td>
-                      <td className="px-4 py-3 font-semibold text-[#050505] whitespace-nowrap">{item.price.toLocaleString()} ฿</td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`font-bold text-[13px] ${(item.stock || 0) <= 5 ? 'text-red-500' : 'text-gray-700'}`}>
-                          {(item.stock || 0).toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`text-[11px] font-bold px-2 py-1 rounded-full ${
-                          (item.status || 'active') === 'active'
-                            ? 'bg-green-100 text-green-700'
-                            : (item.status || 'active') === 'draft'
-                              ? 'bg-gray-100 text-gray-600'
-                              : 'bg-red-100 text-red-600'
-                        }`}>
-                          {item.status || 'active'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          {item.seller?.avatar && (
-                            <img src={item.seller.avatar} className="w-6 h-6 rounded-full object-cover shrink-0" alt="" />
-                          )}
-                          <span className="text-gray-500 text-[13px]">{item.seller?.name ?? item.seller}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-400 whitespace-nowrap text-[13px]">{item.location}</td>
-                      <td className="px-4 py-3">
-                        {isDeleting('market', item.id) ? (
-                          <ConfirmPair onConfirm={() => deleteMarket(item.id)} onCancel={() => setConfirmDelete(null)} />
+            {/* Product cards */}
+            {filteredMarket.length === 0 ? (
+              <div className="bg-white rounded-xl border border-gray-200 py-16 text-center text-gray-400">
+                <p className="text-4xl mb-2">🛍️</p>
+                <p className="font-semibold">ไม่พบสินค้า</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {filteredMarket.map(item => {
+                  const stock = item.stock || 0;
+                  const status = item.status || 'active';
+                  const statusCfg = {
+                    active:   { label: 'วางขาย',   cls: 'bg-green-100 text-green-700' },
+                    draft:    { label: 'ร่าง',      cls: 'bg-yellow-100 text-yellow-700' },
+                    archived: { label: 'เก็บถาวร', cls: 'bg-gray-100 text-gray-500' },
+                  }[status] ?? { label: status, cls: 'bg-gray-100 text-gray-500' };
+
+                  return (
+                    <div key={item.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                      {/* Image + overlay badges */}
+                      <div className="relative h-36 bg-gray-100 shrink-0">
+                        {item.img ? (
+                          <img src={item.img} alt={item.title} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="flex gap-1.5 flex-wrap">
-                            <button
-                              onClick={() => openEditProduct(item)}
-                              className="text-[12px] font-semibold px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => adjustMarketStock(item.id, 1)}
-                              className="text-[12px] font-semibold px-2.5 py-1 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
-                            >
-                              +Stock
-                            </button>
-                            <button
-                              onClick={() => adjustMarketStock(item.id, -1)}
-                              disabled={(item.stock || 0) <= 0}
-                              className="text-[12px] font-semibold px-2.5 py-1 rounded-md bg-yellow-50 text-yellow-700 hover:bg-yellow-100 disabled:opacity-40 transition-colors"
-                            >
-                              -Stock
-                            </button>
-                            {(item.status || 'active') !== 'archived' && (
+                          <div className="w-full h-full flex items-center justify-center text-4xl">🐾</div>
+                        )}
+                        <span className={`absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${statusCfg.cls}`}>
+                          {statusCfg.label}
+                        </span>
+                        {stock <= 5 && (
+                          <span className="absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500 text-white">
+                            {stock === 0 ? 'หมด' : `เหลือ ${stock}`}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div className="p-3 flex flex-col flex-1 gap-2">
+                        <div>
+                          <p className="font-bold text-[14px] text-gray-900 line-clamp-2 leading-snug">{item.title}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[11px] bg-blue-50 text-blue-600 font-semibold px-2 py-0.5 rounded-full">{item.category}</span>
+                            {item.location && <span className="text-[11px] text-gray-400">📍 {item.location}</span>}
+                          </div>
+                        </div>
+
+                        {/* Price + Seller */}
+                        <div className="flex items-center justify-between">
+                          <p className="text-[18px] font-black text-[#4267B2]">{(item.price || 0).toLocaleString()} <span className="text-[12px] font-normal text-gray-400">฿</span></p>
+                          {item.seller?.avatar && (
+                            <div className="flex items-center gap-1.5">
+                              <img src={item.seller.avatar} className="w-5 h-5 rounded-full object-cover" alt="" />
+                              <span className="text-[11px] text-gray-500 truncate max-w-[80px]">{item.seller.name}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Stock control */}
+                        <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
+                          <span className="text-[12px] text-gray-500 font-semibold flex-1">สต็อก</span>
+                          <button
+                            onClick={() => adjustMarketStock(item.id, -1)}
+                            disabled={stock <= 0}
+                            className="w-7 h-7 rounded-lg bg-white border border-gray-200 text-gray-600 font-black text-sm hover:bg-gray-100 disabled:opacity-30 transition-colors flex items-center justify-center"
+                          >−</button>
+                          <span className={`w-10 text-center font-black text-[15px] ${stock <= 5 ? 'text-red-500' : 'text-gray-800'}`}>{stock}</span>
+                          <button
+                            onClick={() => adjustMarketStock(item.id, 1)}
+                            className="w-7 h-7 rounded-lg bg-white border border-gray-200 text-gray-600 font-black text-sm hover:bg-gray-100 transition-colors flex items-center justify-center"
+                          >+</button>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-2 mt-auto pt-1">
+                          {isDeleting('market', item.id) ? (
+                            <ConfirmPair onConfirm={() => deleteMarket(item.id)} onCancel={() => setConfirmDelete(null)} />
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => openEditProduct(item)}
+                                className="flex-1 py-2 rounded-xl bg-[#ebf5ff] text-[#1877f2] text-[13px] font-bold hover:bg-[#dce9ff] transition-colors"
+                              >
+                                ✏️ แก้ไข
+                              </button>
                               <button
                                 onClick={() => setConfirmDelete({ type: 'market', id: item.id })}
-                                className="text-[12px] font-semibold px-2.5 py-1 rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                                className="flex-1 py-2 rounded-xl bg-red-50 text-red-500 text-[13px] font-bold hover:bg-red-100 transition-colors"
                               >
-                                Archive
+                                🗑️ ลบ
                               </button>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filteredMarket.length === 0 && <p className="text-center text-gray-400 py-12 text-sm">ไม่มีสินค้าในหมวดนี้</p>}
-            </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
