@@ -1,14 +1,35 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Image as ImageIcon, Heart, Cat, Smile, Edit3, UserPlus, MessageCircle, ArrowLeft, X } from 'lucide-react';
+import { Image as ImageIcon, Heart, Cat, Smile, Edit3, UserPlus, UserCheck, MessageCircle, ArrowLeft, X } from 'lucide-react';
 import CreatePostBox from '../components/CreatePostBox';
 import PostCard from '../components/PostCard';
 import Toast from '../components/Toast';
 import useToast from '../hooks/useToast';
-import { mockPosts, mockUsers, mockCats } from '../data/mockData';
 import { useUser } from '../context/UserContext';
-import { uploadFile } from '../services/apiClient';
-import { authApi, profileApi } from '../services/commerceApi';
+import { updateUserProfile, deleteUserDoc, followUser, unfollowUser, getFollowing } from '../services/userStore';
+import { subscribePostsByUser } from '../services/postStore';
+import { deleteUser } from 'firebase/auth';
+import { auth } from '../firebase';
+
+function compressImage(file, maxW, maxH, quality = 0.75) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxW / img.width, maxH / img.height);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
 
 const TABS = ['โพสต์', 'เกี่ยวกับ', 'เพื่อนเหมียว', 'รูปภาพ'];
 
@@ -16,49 +37,62 @@ const ProfilePage = () => {
   const { currentUser, viewedCat, setViewedCat, updateProfile } = useUser();
   const navigate = useNavigate();
 
-  const isOwnProfile = !viewedCat || viewedCat.id === currentUser.activeCat.id;
+  const isOwnProfile = !viewedCat || viewedCat.uid === currentUser.uid || viewedCat.id === currentUser.uid;
+  const profileUid = isOwnProfile ? currentUser.uid : (viewedCat?.uid || viewedCat?.id);
 
-  const resolveProfile = () => {
-    if (isOwnProfile) {
-      return { cat: currentUser.activeCat, ownerName: currentUser.ownerName };
-    }
-    const u = mockUsers.find(u => u.activeCat.id === viewedCat.id);
-    if (u) return { cat: u.activeCat, ownerName: u.ownerName };
-    const c = mockCats.find(c => c.id === viewedCat.id);
-    return {
-      cat: { ...viewedCat, breed: c?.breed || '—', bio: '—', status: 'ออนไลน์', cover: viewedCat.avatar },
-      ownerName: c?.owner || '—',
-    };
-  };
-
-  const { cat: profileCat, ownerName: profileOwner } = resolveProfile();
-  const basePosts = mockPosts.filter(p => p.cat.id === profileCat.id);
+  const profileCat = isOwnProfile
+    ? currentUser.activeCat
+    : { name: viewedCat?.name, avatar: viewedCat?.avatar || '/favicon.svg', breed: viewedCat?.breed || '', bio: viewedCat?.bio || '' };
+  const profileOwner = isOwnProfile ? currentUser.name : (viewedCat?.owner || '—');
 
   const [activeTab, setActiveTab] = useState('โพสต์');
-  const [ownPosts, setOwnPosts] = useState([]);
+  const [posts, setPosts] = useState([]);
   const [coverImg, setCoverImg] = useState(currentUser.activeCat.cover);
   const [avatarImg, setAvatarImg] = useState(currentUser.activeCat.avatar);
   const [toast, showToast] = useToast();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', breed: '', bio: '' });
-  const [friendIds, setFriendIds] = useState([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const coverRef = useRef(null);
+  const avatarRef = useRef(null);
+
+  useEffect(() => {
+    if (!profileUid) return;
+    const unsub = subscribePostsByUser(profileUid, setPosts);
+    return unsub;
+  }, [profileUid]);
+
+  useEffect(() => {
+    setActiveTab('โพสต์');
+    if (isOwnProfile) {
+      setCoverImg(currentUser.activeCat.cover);
+      setAvatarImg(currentUser.activeCat.avatar);
+    }
+  }, [viewedCat?.id, currentUser.activeCat.avatar, currentUser.activeCat.cover, isOwnProfile]);
+
+  useEffect(() => {
+    if (isOwnProfile || !profileUid) return;
+    getFollowing(currentUser.uid).then(set => setIsFollowing(set.has(profileUid))).catch(() => {});
+  }, [isOwnProfile, profileUid, currentUser.uid]);
 
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
-      await authApi.deleteAccount();
+      await deleteUserDoc(currentUser.uid);
+      await deleteUser(auth.currentUser);
       window.location.href = '/login';
-    } catch {
-      showToast('ลบบัญชีไม่สำเร็จ กรุณาลองใหม่');
+    } catch (err) {
+      if (err.code === 'auth/requires-recent-login') {
+        showToast('กรุณา Sign in ใหม่ก่อนลบบัญชี');
+      } else {
+        showToast('ลบบัญชีไม่สำเร็จ กรุณาลองใหม่');
+      }
       setIsDeleting(false);
       setShowDeleteConfirm(false);
     }
   };
-
-  const profilePosts = isOwnProfile ? [...ownPosts, ...basePosts] : basePosts;
-  const handleAddPost = (newPost) => setOwnPosts(prev => [newPost, ...prev]);
 
   const openEditModal = () => {
     setEditForm({
@@ -69,71 +103,70 @@ const ProfilePage = () => {
     setIsEditModalOpen(true);
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (!editForm.name.trim()) return;
-    updateProfile({
-      name: editForm.name.trim(),
-      breed: editForm.breed.trim(),
-      bio: editForm.bio.trim(),
-    });
-    setIsEditModalOpen(false);
-    showToast('อัปเดตโปรไฟล์สำเร็จ! 🐾');
+    try {
+      await updateUserProfile(currentUser.uid, {
+        'activeCat.name': editForm.name.trim(),
+        'activeCat.breed': editForm.breed.trim(),
+        'activeCat.bio': editForm.bio.trim(),
+      });
+      updateProfile({ name: editForm.name.trim(), breed: editForm.breed.trim(), bio: editForm.bio.trim() });
+      setIsEditModalOpen(false);
+      showToast('อัปเดตโปรไฟล์สำเร็จ! 🐾');
+    } catch {
+      showToast('บันทึกไม่สำเร็จ กรุณาลองใหม่');
+    }
   };
-  const coverRef = useRef(null);
-  const avatarRef = useRef(null);
-
-  useEffect(() => {
-    setActiveTab('โพสต์');
-    setCoverImg(currentUser.activeCat.cover);
-    setAvatarImg(currentUser.activeCat.avatar);
-  }, [viewedCat?.id, currentUser.activeCat.id, currentUser.activeCat.avatar, currentUser.activeCat.cover]);
-
-  useEffect(() => () => {
-    if (coverImg?.startsWith('blob:')) URL.revokeObjectURL(coverImg);
-    if (avatarImg?.startsWith('blob:')) URL.revokeObjectURL(avatarImg);
-  }, [coverImg, avatarImg]);
-
-  const displayCover = isOwnProfile ? coverImg : (profileCat.cover || profileCat.avatar);
-  const displayAvatar = isOwnProfile ? avatarImg : profileCat.avatar;
 
   const handleFileChange = async (e, type) => {
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
     e.target.value = '';
-
-    // Immediate blob preview
-    const blobUrl = URL.createObjectURL(file);
-    if (type === 'avatar') setAvatarImg(blobUrl);
-    else setCoverImg(blobUrl);
-    showToast('กำลังอัปโหลดรูปภาพ...');
+    showToast('กำลังบีบอัดรูปภาพ...');
 
     try {
-      const { url } = await uploadFile(file);
-      URL.revokeObjectURL(blobUrl);
-
-      const cat = currentUser.activeCat;
-      const updatedFields = type === 'avatar' ? { avatar: url } : { cover: url };
-      await profileApi.update({ name: cat.name, breed: cat.breed, bio: cat.bio, avatar: cat.avatar, cover: cat.cover, ...updatedFields });
-      updateProfile(updatedFields);
-      if (type === 'avatar') setAvatarImg(url);
-      else setCoverImg(url);
+      const maxW = type === 'avatar' ? 400 : 1200;
+      const maxH = type === 'avatar' ? 400 : 400;
+      const b64 = await compressImage(file, maxW, maxH, 0.75);
+      if (type === 'avatar') {
+        setAvatarImg(b64);
+        await updateUserProfile(currentUser.uid, { 'activeCat.avatar': b64 });
+        updateProfile({ avatar: b64 });
+      } else {
+        setCoverImg(b64);
+        await updateUserProfile(currentUser.uid, { 'activeCat.cover': b64 });
+        updateProfile({ cover: b64 });
+      }
       showToast('อัปเดตรูปภาพสำเร็จ! 🐾');
     } catch {
-      URL.revokeObjectURL(blobUrl);
-      if (type === 'avatar') setAvatarImg(currentUser.activeCat.avatar);
-      else setCoverImg(currentUser.activeCat.cover);
       showToast('อัปโหลดไม่สำเร็จ กรุณาลองใหม่');
     }
   };
 
-  const addFriend = () => {
-    setFriendIds(prev => prev.includes(profileCat.id) ? prev : [...prev, profileCat.id]);
-    showToast(`${profileCat.name} added to local friends`);
+  const toggleFollow = async () => {
+    const prev = isFollowing;
+    setIsFollowing(!prev);
+    try {
+      if (prev) {
+        await unfollowUser(currentUser.uid, profileUid);
+        showToast(`ยกเลิกการติดตาม ${profileCat.name} แล้ว`);
+      } else {
+        await followUser(currentUser.uid, profileUid);
+        showToast(`ติดตาม ${profileCat.name} แล้ว! 🐾`);
+      }
+    } catch {
+      setIsFollowing(prev);
+      showToast('เกิดข้อผิดพลาด กรุณาลองใหม่');
+    }
   };
 
   const openMessage = () => {
-    navigate(`/messages?cat=${encodeURIComponent(profileCat.id)}`);
+    navigate(`/messages?cat=${encodeURIComponent(profileUid)}`);
   };
+
+  const displayCover = isOwnProfile ? (coverImg || '/favicon.svg') : (profileCat.cover || profileCat.avatar || '/favicon.svg');
+  const displayAvatar = isOwnProfile ? (avatarImg || '/favicon.svg') : (profileCat.avatar || '/favicon.svg');
 
   return (
     <div className="w-full">
@@ -144,7 +177,7 @@ const ProfilePage = () => {
           onClick={() => { setViewedCat(null); navigate('/profile'); }}
           className="flex items-center gap-1.5 text-[#4267B2] font-semibold text-sm mb-3 hover:underline"
         >
-          <ArrowLeft className="w-4 h-4" /> ← กลับโปรไฟล์ของฉัน
+          <ArrowLeft className="w-4 h-4" /> กลับโปรไฟล์ของฉัน
         </button>
       )}
 
@@ -160,8 +193,7 @@ const ProfilePage = () => {
               >
                 <ImageIcon className="w-4 h-4" /> เปลี่ยนรูปหน้าปก
               </button>
-              <input ref={coverRef} type="file" accept="image/*" className="hidden"
-                onChange={e => handleFileChange(e, 'cover')} />
+              <input ref={coverRef} type="file" accept="image/*" className="hidden" onChange={e => handleFileChange(e, 'cover')} />
             </>
           )}
         </div>
@@ -183,8 +215,7 @@ const ProfilePage = () => {
                   >
                     <ImageIcon className="w-4 h-4 text-gray-800" />
                   </button>
-                  <input ref={avatarRef} type="file" accept="image/*" className="hidden"
-                    onChange={e => handleFileChange(e, 'avatar')} />
+                  <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={e => handleFileChange(e, 'avatar')} />
                 </>
               )}
             </div>
@@ -205,11 +236,14 @@ const ProfilePage = () => {
             ) : (
               <>
                 <button
-                  onClick={addFriend}
-                  disabled={friendIds.includes(profileCat.id)}
-                  className="bg-[#4267B2] hover:bg-[#3b5998] disabled:bg-green-100 disabled:text-green-700 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors"
+                  onClick={toggleFollow}
+                  className={`px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors
+                    ${isFollowing
+                      ? 'bg-gray-100 hover:bg-red-50 hover:text-red-500 text-gray-800'
+                      : 'bg-[#4267B2] hover:bg-[#3b5998] text-white'}`}
                 >
-                  <UserPlus className="w-4 h-4" /> เพิ่มเพื่อน
+                  {isFollowing ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                  {isFollowing ? 'ติดตามแล้ว' : 'ติดตาม'}
                 </button>
                 <button
                   onClick={openMessage}
@@ -261,9 +295,9 @@ const ProfilePage = () => {
             </div>
           </div>
           <div className="w-full md:w-2/3">
-            {isOwnProfile && <CreatePostBox onAddPost={handleAddPost} />}
-            {profilePosts.length > 0
-              ? profilePosts.map(p => <PostCard key={p.id} post={p} />)
+            {isOwnProfile && <CreatePostBox />}
+            {posts.length > 0
+              ? posts.map(p => <PostCard key={p.id} post={p} />)
               : (
                 <div className="bg-white rounded-xl shadow-sm p-10 border border-gray-200 text-center text-gray-400">
                   <p className="text-4xl mb-2">📷</p>
@@ -339,11 +373,11 @@ const ProfilePage = () => {
         </div>
       )}
 
-      {/* Photos tab */}
-      {activeTab === TABS[3] && (
+      {/* Tab: รูปภาพ */}
+      {activeTab === 'รูปภาพ' && (
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-          <h2 className="font-bold text-xl mb-2 text-gray-800">Photos</h2>
-          <p className="text-gray-400 text-sm">No photos yet.</p>
+          <h2 className="font-bold text-xl mb-2 text-gray-800">รูปภาพ</h2>
+          <p className="text-gray-400 text-sm">ยังไม่มีรูปภาพ</p>
         </div>
       )}
 
@@ -354,8 +388,6 @@ const ProfilePage = () => {
           onClick={(e) => { if (e.target === e.currentTarget) setIsEditModalOpen(false); }}
         >
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-
-            {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-800">แก้ไขโปรไฟล์</h2>
               <button
@@ -366,7 +398,6 @@ const ProfilePage = () => {
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="px-6 py-5 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">
@@ -404,7 +435,6 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="px-6 pb-5 flex gap-3 justify-end">
               <button
                 onClick={() => setIsEditModalOpen(false)}

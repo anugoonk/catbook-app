@@ -3,7 +3,7 @@ import { Image as ImageIcon, Smile, UserPlus } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import CreatePostModal from './CreatePostModal';
 
-const CreatePostBox = ({ onAddPost }) => {
+const CreatePostBox = () => {
   const { currentUser } = useUser();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [initialPanel, setInitialPanel] = useState(null);
@@ -60,7 +60,6 @@ const CreatePostBox = ({ onAddPost }) => {
       <CreatePostModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onPost={onAddPost}
         initialPanel={initialPanel}
       />
     </>

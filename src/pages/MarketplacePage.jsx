@@ -4,12 +4,11 @@ import { Plus, Tag, ShoppingBag, Check, ExternalLink } from 'lucide-react';
 import PawIcon from '../components/PawIcon';
 import Toast from '../components/Toast';
 import useToast from '../hooks/useToast';
-import { mockUsers } from '../data/mockData';
 import { useUser } from '../context/UserContext';
 import { useCart } from '../context/CartContext';
 import CreateListingModal from '../components/CreateListingModal';
 import ProductDetailModal from '../components/ProductDetailModal';
-import { adminApi, productApi, sellerApi } from '../services/commerceApi';
+import { subscribeListings, createListing } from '../services/listingStore';
 import { trackMarketingEvent } from '../services/marketingTracking';
 import { productSeoMeta, setSeoMeta } from '../utils/seo';
 
@@ -36,7 +35,24 @@ const LAZADA_CAT_LINKS = {
   'อุปกรณ์':        'https://www.lazada.co.th/shop-pet-grooming/',
 };
 
-const buildMarket = (users) => {
+function compressImgUrl(blobUrl, maxW, maxH, quality = 0.75) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxW / img.width, maxH / img.height);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.src = blobUrl;
+  });
+}
+
+// kept for reference only — not used at runtime
+const _buildMarket_unused = (users) => {
   const [u1, u2, u3, u4] = users;
   return [
     {
@@ -202,7 +218,7 @@ const ProductCard = ({ item, onAdd, onSelect }) => {
   const { items, setIsOpen, isProductPending } = useCart();
   const [justAdded, setJustAdded] = useState(false);
 
-  const isOwn = item.seller?.id === currentUser.activeCat.id;
+  const isOwn = item.sellerUid ? item.sellerUid === currentUser.uid : item.seller?.id === currentUser.activeCat?.id;
   const cartItem = items.find(i => i.product.id === item.id);
   const inCart = Boolean(cartItem);
   const isAdding = isProductPending(item.id);
@@ -378,12 +394,10 @@ const AffiliatePartnerCard = ({ href, color, bgColor, borderColor, icon, name, d
 const MarketplacePage = () => {
   const { currentUser } = useUser();
   const location = useLocation();
-  const isAdmin = currentUser.isAdmin;
-  const isSeller = currentUser.role === 'SELLER' || currentUser.isAdmin;
+  const isSeller = true;
   const { addItem, count, setIsOpen } = useCart();
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
   const [activeCategory, setActiveCategory] = useState('ทั้งหมด');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -391,28 +405,13 @@ const MarketplacePage = () => {
   const handledProductLinkRef = useRef('');
 
   useEffect(() => {
-    let isMounted = true;
-
     setIsLoading(true);
-    setLoadError('');
-
-    productApi.list()
-      .then(({ products }) => {
-        if (!isMounted) return;
-        setItems(products || []);
-        setActiveCategory('ทั้งหมด');
-      })
-      .catch(() => {
-        if (!isMounted) return;
-        setItems(buildMarket(mockUsers));
-        setLoadError('โหลดสินค้าจาก API ไม่สำเร็จ กำลังใช้ข้อมูลสำรอง');
-      })
-      .finally(() => {
-        if (isMounted) setIsLoading(false);
-      });
-
-    return () => { isMounted = false; };
-  }, [currentUser.activeCat.id]);
+    const unsub = subscribeListings(listings => {
+      setItems(listings);
+      setIsLoading(false);
+    });
+    return unsub;
+  }, []);
 
   const handleSelect = (item) => {
     setSelectedProduct(item);
@@ -441,12 +440,24 @@ const MarketplacePage = () => {
   };
 
   const handleAddListing = async (newItem) => {
-    const sku = newItem.sku || `MKT-${Date.now().toString(36).toUpperCase()}`;
-    const payload = { ...newItem, sku, slug: newItem.slug || sku.toLowerCase(), status: 'active' };
-    const api = isAdmin ? adminApi : sellerApi;
-    const response = await api.createProduct(payload);
-    setItems(prev => [response.product, ...prev]);
-    showToast(`บันทึก "${response.product.title}" แล้ว`);
+    let img = newItem.img;
+    if (img && img.startsWith('blob:')) {
+      img = await compressImgUrl(img, 800, 600);
+      URL.revokeObjectURL(newItem.img);
+    }
+    const listing = {
+      ...newItem,
+      img,
+      sellerUid: currentUser.uid,
+      seller: {
+        id: currentUser.uid,
+        uid: currentUser.uid,
+        name: currentUser.activeCat.name,
+        avatar: currentUser.activeCat.avatar || '',
+      },
+    };
+    await createListing(listing);
+    showToast(`ลงขาย "${newItem.title}" แล้ว`);
   };
 
   const displayed = activeCategory === 'ทั้งหมด'
@@ -686,12 +697,6 @@ const MarketplacePage = () => {
               </div>
               <ExternalLink className="w-4 h-4 opacity-70 shrink-0 ml-auto" />
             </a>
-          </div>
-        )}
-
-        {loadError && (
-          <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-700 text-sm font-medium rounded-xl px-4 py-3">
-            {loadError}
           </div>
         )}
 

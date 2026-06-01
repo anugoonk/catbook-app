@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { X, Send, Smile, Sticker, ImageIcon, CornerUpLeft, Trash2 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
-import { chatApi } from '../services/chatApi.js';
+import { subscribeMessages, sendMessage, deleteMessage } from '../services/chatStore.js';
 
 const INIT_MESSAGES = {
   c2: [{ id: 1, from: 'c2', text: 'เมี๊ยววว ทำอะไรอยู่คะ? 🐾', time: 'เมื่อกี้', reactions: {} }],
@@ -171,19 +171,12 @@ const Bubble = ({ msg, cat, isLastMy, isRead, onReact, onReply, onDelete, hovere
   );
 };
 
-// แปลง server message → UI format
-const toUiMsg = (m, myId) => ({
-  id: m.id,
-  from: m.from_id === myId ? 'me' : m.from_id,
-  text: m.text,
-  time: new Date(m.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
-  reactions: {},
-});
 
 /* ── ChatWindow ── */
 const ChatWindow = ({ cat, onClose }) => {
   const { currentUser } = useUser();
-  const partnerId = cat.userId; // ส่งมาจาก RightSidebar ด้วย userId
+  const myUid = currentUser.uid;
+  const partnerUid = cat.userId || cat.uid || cat.id;
 
   const [messages, setMessages] = useState([]);
   const [input, setInput]         = useState('');
@@ -194,63 +187,45 @@ const ChatWindow = ({ cat, onClose }) => {
   const [hoveredId, setHoveredId] = useState(null);
   const [reactionTarget, setReactionTarget] = useState(null);
 
-  const bottomRef  = useRef(null);
-  const inputRef   = useRef(null);
-  const fileRef    = useRef(null);
-  const latestRef  = useRef(null); // created_at ของข้อความล่าสุด
+  const bottomRef = useRef(null);
+  const inputRef  = useRef(null);
+  const fileRef   = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // โหลดข้อความครั้งแรก
+  // Subscribe real-time messages
   useEffect(() => {
-    if (!partnerId) return;
-    chatApi.getMessages(partnerId).then(({ messages: msgs }) => {
-      const ui = msgs.map(m => toUiMsg(m, currentUser.id));
-      setMessages(ui);
-      if (msgs.length) latestRef.current = msgs[msgs.length - 1].created_at;
-    }).catch(() => {});
-  }, [partnerId, currentUser.id]);
-
-  // Polling ทุก 3 วิ
-  const poll = useCallback(() => {
-    if (!partnerId) return;
-    chatApi.getMessages(partnerId, latestRef.current).then(({ messages: newMsgs }) => {
-      if (!newMsgs.length) return;
-      const ui = newMsgs.map(m => toUiMsg(m, currentUser.id));
-      setMessages(prev => [...prev, ...ui]);
-      latestRef.current = newMsgs[newMsgs.length - 1].created_at;
-    }).catch(() => {});
-  }, [partnerId, currentUser.id]);
-
-  useEffect(() => {
-    const id = setInterval(poll, 3000);
-    return () => clearInterval(id);
-  }, [poll]);
+    if (!myUid || !partnerUid) return;
+    const unsub = subscribeMessages(myUid, partnerUid, setMessages);
+    return unsub;
+  }, [myUid, partnerUid]);
 
   const send = async (text) => {
     const trimmed = (text ?? input).trim();
-    if (!trimmed || sending || !partnerId) return;
+    if (!trimmed || sending || !partnerUid) return;
     setSending(true);
     setInput('');
     setShowEmoji(false);
     setShowSticker(false);
+    const rt = replyTo;
     setReplyTo(null);
     try {
-      const { message: m } = await chatApi.sendMessage(partnerId, trimmed);
-      const ui = toUiMsg(m, currentUser.id);
-      setMessages(prev => [...prev, ui]);
-      latestRef.current = m.created_at;
+      await sendMessage(myUid, partnerUid, {
+        text: trimmed,
+        replyTo: rt,
+        senderName: currentUser.activeCat?.name || currentUser.name || '',
+        senderAvatar: currentUser.activeCat?.avatar || currentUser.avatar || '',
+      });
     } catch {
-      setInput(trimmed); // คืน input ถ้า error
+      setInput(trimmed);
     } finally {
       setSending(false);
     }
   };
 
   const sendImage = (file) => {
-    // รูปภาพยังเป็น local-only (ไม่ได้ upload ไป server)
     const url = URL.createObjectURL(file);
     const msg = makeMsg('me', '', { type: 'image', img: url, replyTo });
     setMessages(prev => [...prev, msg]);
@@ -273,8 +248,12 @@ const ChatWindow = ({ cat, onClose }) => {
     }));
   };
 
-  const handleDelete = (msgId) => {
-    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, deleted: true, text: '' } : m));
+  const handleDelete = async (msgId) => {
+    try {
+      await deleteMessage(myUid, partnerUid, msgId);
+    } catch {
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, deleted: true, text: '' } : m));
+    }
   };
 
   const handleReply = (msg) => {

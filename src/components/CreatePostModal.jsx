@@ -4,8 +4,7 @@ import { mockUsers } from '../data/mockData';
 import { useUser } from '../context/UserContext';
 import { useNotifications } from '../context/NotificationContext';
 import { translateToMeow } from '../utils/meowTranslator';
-import { socialApi } from '../services/socialApi';
-import { uploadFile } from '../services/apiClient';
+import { createPost } from '../services/postStore';
 
 const FEELINGS = [
   { emoji: '😴', label: 'ง่วงนอน' },
@@ -80,7 +79,7 @@ const PreviewGrid = ({ images, onRemove }) => {
   );
 };
 
-const CreatePostModal = ({ isOpen, onClose, onPost, initialPanel = null }) => {
+const CreatePostModal = ({ isOpen, onClose, initialPanel = null }) => {
   const { currentUser } = useUser();
   const { addNotification } = useNotifications();
   const [text, setText] = useState('');
@@ -186,21 +185,13 @@ const CreatePostModal = ({ isOpen, onClose, onPost, initialPanel = null }) => {
 
     setPosting(true);
     try {
-      // Upload image to server first (if any)
-      let imageUrl = null;
-      if (imageFiles.length > 0) {
-        const result = await uploadFile(imageFiles[0]);
-        imageUrl = result.url;
-      }
-
-      const data = await socialApi.createPost({
+      await createPost({
         content,
         feeling: selectedFeeling ? `${selectedFeeling.emoji} ${selectedFeeling.label}` : null,
-        location: null,
-        imageUrl,
+        imageFile: imageFiles[0] || null,
+        currentUser,
       });
 
-      // Fire mention notifications locally
       [...rawContent.matchAll(/@(\S+)/g)].forEach(([, name]) => {
         if (mentionableCats.find(c => c.name === name)) {
           addNotification({
@@ -211,7 +202,6 @@ const CreatePostModal = ({ isOpen, onClose, onPost, initialPanel = null }) => {
         }
       });
 
-      onPost?.(data.post);
       onClose();
     } catch {
       // keep modal open on error

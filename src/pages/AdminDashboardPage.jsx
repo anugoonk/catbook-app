@@ -6,6 +6,11 @@ import {
 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { adminApi } from '../services/commerceApi';
+import { getAllUsers, setUserRole, setUserStatus, deleteUserDoc } from '../services/userStore';
+import { db } from '../firebase';
+import { collection, getDocs, updateDoc, deleteDoc, doc, orderBy, query } from 'firebase/firestore';
+import { deletePost as deletePostFirestore } from '../services/postStore';
+import { deleteListing, updateListing, createListing } from '../services/listingStore';
 import Toast from '../components/Toast';
 import useToast from '../hooks/useToast';
 
@@ -271,13 +276,13 @@ const AdminDashboardPage = () => {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const isDeleting = (type, id) => confirmDelete?.type === type && confirmDelete?.id === id;
 
-  const isSelf = (user) => user.id === currentUser.id;
+  const isSelf = (user) => user.id === currentUser.uid;
 
   const loadMarket = useCallback(async () => {
     setMarketLoading(true);
     try {
-      const response = await adminApi.products();
-      setMarket(response.products || []);
+      const snap = await getDocs(collection(db, 'listings'));
+      setMarket(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setMarketError('');
     } catch {
       setMarketError('โหลดสินค้าไม่สำเร็จ');
@@ -297,8 +302,8 @@ const AdminDashboardPage = () => {
 
   const loadUsers = useCallback(async () => {
     try {
-      const response = await adminApi.users();
-      setUsers(response.users || []);
+      const data = await getAllUsers();
+      setUsers(data);
     } catch {
       showToast('โหลดข้อมูลสมาชิกไม่สำเร็จ');
     }
@@ -306,8 +311,23 @@ const AdminDashboardPage = () => {
 
   const loadPosts = useCallback(async () => {
     try {
-      const response = await adminApi.posts();
-      setPosts(response.posts || []);
+      const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => {
+        const p = d.data();
+        return {
+          id: d.id,
+          content: p.content || '',
+          feeling: p.feeling || null,
+          image: p.imageUrl || null,
+          cat: { name: p.authorName || '—', avatar: p.authorAvatar || '' },
+          time: p.createdAt?.toDate ? p.createdAt.toDate().toLocaleString('th-TH') : '—',
+          likeCount: p.likeCount || 0,
+          commentCount: p.commentCount || 0,
+          hidden: p.hidden || false,
+        };
+      });
+      setPosts(data);
     } catch {
       showToast('โหลดโพสต์ไม่สำเร็จ');
     }
@@ -323,10 +343,7 @@ const AdminDashboardPage = () => {
   }, [showToast]);
 
   const loadActivity = useCallback(async () => {
-    try {
-      const response = await adminApi.activity();
-      setActivities(response.activities || []);
-    } catch { /* non-critical */ }
+    // activity log ยังไม่ได้ migrate — skip
   }, []);
 
   useEffect(() => {
@@ -350,7 +367,7 @@ const AdminDashboardPage = () => {
     if (!target) return;
     const next = target.status === 'banned' ? 'active' : 'banned';
     try {
-      await adminApi.setUserStatus(userId, next);
+      await setUserStatus(userId, next);
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: next } : u));
       showToast(next === 'banned' ? 'ระงับสมาชิกแล้ว' : 'ปลดระงับสมาชิกแล้ว');
     } catch {
@@ -365,7 +382,7 @@ const AdminDashboardPage = () => {
     if (!target) return;
     const next = ROLE_CYCLE[target.role] || 'USER';
     try {
-      await adminApi.updateUserRole(userId, next);
+      await setUserRole(userId, next);
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: next, isAdmin: next === 'ADMIN' } : u));
       showToast(`เปลี่ยนสิทธิ์เป็น ${ROLE_LABEL_TH[next]} แล้ว`);
     } catch {
@@ -374,7 +391,7 @@ const AdminDashboardPage = () => {
   };
   const deleteUser = async (id) => {
     try {
-      await adminApi.deleteUser(id);
+      await deleteUserDoc(id);
       setUsers(prev => prev.filter(u => u.id !== id));
       setConfirmDelete(null);
       showToast('ลบสมาชิกเรียบร้อยแล้ว');
@@ -387,7 +404,7 @@ const AdminDashboardPage = () => {
     if (!post) return;
     const next = !post.hidden;
     try {
-      await adminApi.setPostVisibility(id, next);
+      await updateDoc(doc(db, 'posts', id), { hidden: next });
       setPosts(prev => prev.map(p => p.id === id ? { ...p, hidden: next } : p));
       showToast(next ? 'ซ่อนโพสต์แล้ว' : 'แสดงโพสต์แล้ว');
     } catch {
@@ -396,7 +413,7 @@ const AdminDashboardPage = () => {
   };
   const deletePost = async (id) => {
     try {
-      await adminApi.deletePost(id);
+      await deletePostFirestore(id);
       setPosts(prev => prev.filter(p => p.id !== id));
       setConfirmDelete(null);
       showToast('ลบโพสต์เรียบร้อยแล้ว');
@@ -404,22 +421,27 @@ const AdminDashboardPage = () => {
       showToast('ลบโพสต์ไม่สำเร็จ');
     }
   };
-  const deleteMarket = (id) => {
-    adminApi.archiveProduct(id)
-      .then(({ product }) => {
-        setMarket(p => p.map(x => x.id === id ? product : x));
-        setConfirmDelete(null);
-        showToast('Archive สินค้าเรียบร้อยแล้ว');
-      })
-      .catch(() => showToast('Archive สินค้าไม่สำเร็จ'));
+  const deleteMarket = async (id) => {
+    try {
+      await deleteListing(id);
+      setMarket(p => p.filter(x => x.id !== id));
+      setConfirmDelete(null);
+      showToast('ลบสินค้าเรียบร้อยแล้ว');
+    } catch {
+      showToast('ลบสินค้าไม่สำเร็จ');
+    }
   };
-  const adjustMarketStock = (id, quantity) => {
-    adminApi.adjustStock(id, { mode: 'delta', quantity, type: quantity > 0 ? 'in' : 'adjustment', note: 'Admin dashboard quick adjust' })
-      .then(({ product }) => {
-        setMarket(p => p.map(x => x.id === id ? product : x));
-        showToast(quantity > 0 ? 'เพิ่มสต็อกแล้ว' : 'ลดสต็อกแล้ว');
-      })
-      .catch(() => showToast('ปรับสต็อกไม่สำเร็จ'));
+  const adjustMarketStock = async (id, quantity) => {
+    const item = market.find(x => x.id === id);
+    if (!item) return;
+    const newStock = Math.max(0, (item.stock || 0) + quantity);
+    try {
+      await updateListing(id, { stock: newStock });
+      setMarket(p => p.map(x => x.id === id ? { ...x, stock: newStock } : x));
+      showToast(quantity > 0 ? 'เพิ่มสต็อกแล้ว' : 'ลดสต็อกแล้ว');
+    } catch {
+      showToast('ปรับสต็อกไม่สำเร็จ');
+    }
   };
   const openCreateProduct = () => {
     setProductFormProduct(null);
@@ -462,8 +484,8 @@ const AdminDashboardPage = () => {
 
     setProductFormSaving(true);
     try {
-      if (productFormProduct) await adminApi.updateProduct(productFormProduct.id, payload);
-      else await adminApi.createProduct(payload);
+      if (productFormProduct) await updateListing(productFormProduct.id, payload);
+      else await createListing({ ...payload, sellerUid: currentUser.uid });
       await loadMarket();
       showToast(productFormProduct ? 'อัปเดตสินค้าแล้ว' : 'เพิ่มสินค้าแล้ว');
       setIsProductFormOpen(false);
@@ -550,11 +572,14 @@ const AdminDashboardPage = () => {
   };
 
   /* ── derived data ── */
-  const filteredUsers  = users.filter(u =>
-    u.activeCat.name.includes(userSearch) ||
-    u.ownerName.includes(userSearch) ||
-    u.email.includes(userSearch)
-  );
+  const filteredUsers  = users.filter(u => {
+    const q = userSearch.toLowerCase();
+    return (
+      (u.activeCat?.name || '').toLowerCase().includes(q) ||
+      (u.name || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q)
+    );
+  });
   const filteredPosts  = posts.filter(p => {
     const q = postSearch.toLowerCase();
     return !q || (p.content || '').toLowerCase().includes(q) || (p.cat?.name || '').toLowerCase().includes(q);
@@ -760,23 +785,21 @@ const AdminDashboardPage = () => {
             <h1 className="text-[22px] font-bold text-[#050505] mb-2">
               จัดการสมาชิก <span className="text-gray-400 text-[16px] font-normal">({filteredUsers.length} คน)</span>
             </h1>
-            <SearchBar value={userSearch} onChange={setUserSearch} placeholder="ค้นหาชื่อแมว, เจ้าของ, อีเมล..." />
+            <SearchBar value={userSearch} onChange={setUserSearch} placeholder="ค้นหาชื่อแมว, ชื่อ, อีเมล..." />
 
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+              <table className="w-full text-sm min-w-[600px]">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <Th>แมว</Th>
-                    <Th>เจ้าของ / อีเมล</Th>
-                    <Th>สายพันธุ์</Th>
+                    <Th>สมาชิก / อีเมล</Th>
                     <Th center>สิทธิ์</Th>
                     <Th center>สถานะ</Th>
-                    <Th>จัดการ</Th>
+                    <Th center>จัดการ</Th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredUsers.map(user => {
-                    const cat      = user.activeCat;
+                    const cat      = user.activeCat || {};
                     const isBanned = user.status === 'banned';
                     const role     = user.role || 'USER';
                     const isAdmin  = role === 'ADMIN';
@@ -784,59 +807,62 @@ const AdminDashboardPage = () => {
                     const self     = isSelf(user);
                     return (
                       <tr key={user.id} className={`transition-colors ${isBanned ? 'bg-orange-50' : 'hover:bg-gray-50'}`}>
+
+                        {/* สมาชิก */}
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
                             <img
-                              src={cat.avatar}
-                              className={`w-9 h-9 rounded-full object-cover shrink-0 ${isBanned ? 'opacity-40 grayscale' : ''}`}
+                              src={cat.avatar || user.avatar || '/favicon.svg'}
+                              className={`w-9 h-9 rounded-full object-cover shrink-0 border border-gray-200 ${isBanned ? 'opacity-40 grayscale' : ''}`}
                               alt=""
                             />
-                            <div>
-                              <p className={`font-semibold text-[14px] leading-tight ${isBanned ? 'text-gray-400 line-through' : 'text-[#050505]'}`}>
-                                {cat.name}
+                            <div className="min-w-0">
+                              <p className={`font-semibold text-[13px] leading-tight truncate ${isBanned ? 'text-gray-400 line-through' : 'text-[#050505]'}`}>
+                                {cat.name || '—'} {self && <span className="text-[10px] text-[#4267B2] font-semibold">(คุณ)</span>}
                               </p>
-                              {self && <p className="text-[10px] text-[#4267B2] font-semibold">คุณ</p>}
+                              <p className="text-[11px] text-gray-400 truncate">{user.name || '—'} · {cat.breed || 'ไม่ระบุสายพันธุ์'}</p>
+                              <p className="text-[11px] text-[#4267B2]/70 truncate">{user.email}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <p className="text-[14px] text-[#050505] font-medium leading-tight">{user.ownerName}</p>
-                          <p className="text-[12px] text-gray-400">{user.email}</p>
-                        </td>
-                        <td className="px-4 py-3 text-gray-500 text-[13px] whitespace-nowrap">{cat.breed}</td>
+
+                        {/* สิทธิ์ */}
                         <td className="px-4 py-3 text-center">
                           <button
                             disabled={self}
                             onClick={() => toggleRole(user.id)}
                             title={self ? '' : 'คลิกเพื่อเปลี่ยนสิทธิ์'}
-                            className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full transition-colors disabled:cursor-not-allowed
-                              ${isAdmin
-                                ? 'bg-[#4267B2]/10 text-[#4267B2] hover:bg-[#4267B2]/20'
-                                : isSeller
-                                  ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                            className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors disabled:cursor-not-allowed
+                              ${isAdmin ? 'bg-[#4267B2]/10 text-[#4267B2] hover:bg-[#4267B2]/20'
+                                : isSeller ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                           >
                             {isAdmin && <Crown className="w-3 h-3" />}
                             {isAdmin ? 'Admin' : isSeller ? 'ผู้ขาย' : 'สมาชิก'}
                           </button>
                         </td>
+
+                        {/* สถานะ */}
                         <td className="px-4 py-3 text-center">
-                          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full
+                          <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full
                             ${isBanned ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'}`}>
-                            {isBanned ? 'ระงับ' : 'ปกติ'}
+                            {isBanned ? '🚫 ระงับ' : '✓ ปกติ'}
                           </span>
                         </td>
+
+                        {/* จัดการ */}
                         <td className="px-4 py-3">
-                          <div className="flex gap-1.5 flex-wrap">
+                          <div className="flex items-center justify-center gap-1.5">
                             <button
                               disabled={self}
                               onClick={() => toggleBan(user.id)}
-                              className={`text-[12px] font-semibold px-2.5 py-1 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed
+                              title={isBanned ? 'ปลดระงับ' : 'ระงับบัญชี'}
+                              className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed
                                 ${isBanned
-                                  ? 'bg-green-50 text-green-600 hover:bg-green-100'
-                                  : 'bg-orange-50 text-orange-500 hover:bg-orange-100'}`}
+                                  ? 'bg-green-50 text-green-600 hover:bg-green-100 border border-green-200'
+                                  : 'bg-orange-50 text-orange-500 hover:bg-orange-100 border border-orange-200'}`}
                             >
-                              {isBanned ? 'ปลดระงับ' : 'ระงับ'}
+                              {isBanned ? '✓ ปลดบล็อก' : '🚫 บล็อก'}
                             </button>
                             {isDeleting('user', user.id) ? (
                               <ConfirmPair onConfirm={() => deleteUser(user.id)} onCancel={() => setConfirmDelete(null)} />
@@ -844,9 +870,10 @@ const AdminDashboardPage = () => {
                               <button
                                 disabled={self}
                                 onClick={() => setConfirmDelete({ type: 'user', id: user.id })}
-                                className="text-[12px] font-semibold px-2.5 py-1 rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="ลบสมาชิก"
+                                className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-red-50 text-red-500 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                               >
-                                ลบ
+                                🗑 ลบ
                               </button>
                             )}
                           </div>

@@ -1,0 +1,68 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users: own doc read/write, others read only (for friend list, profile)
+    match /users/{uid} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Posts: anyone auth can read, only author can write/delete
+    match /posts/{postId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid;
+      allow update: if request.auth != null
+        && resource.data.authorId == request.auth.uid;
+      allow delete: if request.auth != null
+        && resource.data.authorId == request.auth.uid;
+
+      // Comments and reactions: auth required
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && request.resource.data.authorId == request.auth.uid;
+        allow update, delete: if request.auth != null
+          && resource.data.authorId == request.auth.uid;
+      }
+      match /reactions/{uid} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // Follows: auth required, only own follows
+    match /follows/{docId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.followerUid == request.auth.uid;
+      allow delete: if request.auth != null
+        && resource.data.followerUid == request.auth.uid;
+    }
+
+    // Listings: anyone auth can read, seller can write own listings
+    match /listings/{listingId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.sellerUid == request.auth.uid;
+      allow update, delete: if request.auth != null
+        && resource.data.sellerUid == request.auth.uid;
+    }
+
+    // Chats/messages: participants only
+    match /chats/{chatId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid in resource.data.participants;
+
+      match /messages/{msgId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && request.resource.data.senderId == request.auth.uid;
+      }
+    }
+  }
+}

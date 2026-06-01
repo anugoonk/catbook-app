@@ -7,12 +7,13 @@ import { OrderProvider } from './context/OrderContext';
 import MainLayout from './components/MainLayout';
 import ChatWindow from './components/ChatWindow';
 import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
+import OnboardingModal from './components/OnboardingModal';
 import CookieConsent from './components/CookieConsent';
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const TermsPage   = lazy(() => import('./pages/TermsPage'));
-import { authApi } from './services/commerceApi';
-import { setSessionActive } from './services/apiClient';
+import { onAuthChange, firebaseSignOut } from './services/authFirebase';
+import { getOrCreateUser } from './services/userStore';
+import { subscribeUnread, clearUnread } from './services/chatStore';
 import { captureUtmContext, trackMarketingEvent } from './services/marketingTracking';
 import { defaultSeoMeta, setSeoMeta } from './utils/seo';
 
@@ -68,37 +69,56 @@ export default function App() {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [activeChat, setActiveChat] = useState(null);
   const [viewedCat, setViewedCat] = useState(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [unreadSenders, setUnreadSenders] = useState([]);
   const isLoggedIn = currentUser !== null;
 
   useEffect(() => {
-    let isMounted = true;
     captureUtmContext();
     setSeoMeta(defaultSeoMeta);
 
-    authApi.me()
-      .then(({ user }) => {
-        if (isMounted) setCurrentUser(user);
-      })
-      .catch(() => {
-        if (isMounted) setCurrentUser(null);
-      })
-      .finally(() => {
-        if (isMounted) setIsAuthReady(true);
-      });
+    const unsubscribe = onAuthChange(async (firebaseUser) => {
+      if (firebaseUser) {
+        const user = await getOrCreateUser(firebaseUser);
+        setCurrentUser(user);
+      } else {
+        setCurrentUser(null);
+      }
+      setIsAuthReady(true);
+    });
 
-    return () => { isMounted = false; };
+    return unsubscribe;
   }, []);
 
-  const handleLogin = (user) => { setCurrentUser(user); setViewedCat(null); setSessionActive(true); };
-  const handleLogout = async () => {
-    setSessionActive(false);
-    try {
-      await authApi.logout();
-    } finally {
-      setCurrentUser(null);
-      setActiveChat(null);
-      setViewedCat(null);
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    const unsub = subscribeUnread(currentUser.uid, (total, senders) => {
+      setUnreadMessages(total);
+      setUnreadSenders(senders);
+    });
+    return unsub;
+  }, [currentUser?.uid]);
+
+  const handleOpenChat = (cat) => {
+    setActiveChat(cat);
+    if (currentUser?.uid && (cat.userId || cat.uid)) {
+      clearUnread(currentUser.uid, cat.userId || cat.uid).catch(() => {});
     }
+  };
+
+  const handleLogin = (user) => { setCurrentUser(user); setViewedCat(null); };
+  const handleOnboardingComplete = (catFields) => {
+    setCurrentUser(prev => ({
+      ...prev,
+      profileComplete: true,
+      activeCat: { ...prev.activeCat, ...catFields },
+    }));
+  };
+  const handleLogout = async () => {
+    await firebaseSignOut();
+    setCurrentUser(null);
+    setActiveChat(null);
+    setViewedCat(null);
   };
   const updateProfile = (fields) =>
     setCurrentUser(prev => ({ ...prev, activeCat: { ...prev.activeCat, ...fields } }));
@@ -123,14 +143,11 @@ export default function App() {
               path="/login"
               element={isLoggedIn ? <Navigate to="/" replace /> : <LoginPage onLogin={handleLogin} />}
             />
-            <Route
-              path="/register"
-              element={isLoggedIn ? <Navigate to="/" replace /> : <RegisterPage onLogin={handleLogin} />}
-            />
+            <Route path="/register" element={<Navigate to="/login" replace />} />
             <Route path="/privacy" element={lazyElement(PrivacyPage)} />
             <Route path="/terms"   element={lazyElement(TermsPage)} />
             {/* Public: เข้าได้โดยไม่ต้อง login */}
-            <Route element={<MainLayout onLogout={handleLogout} onOpenChat={setActiveChat} />}>
+            <Route element={<MainLayout onLogout={handleLogout} onOpenChat={handleOpenChat} unreadMessages={unreadMessages} unreadSenders={unreadSenders} />}>
               <Route path="/" element={lazyElement(HomePage)} />
               <Route path="/lostcats" element={lazyElement(LostCatsPage)} />
             </Route>
@@ -139,7 +156,7 @@ export default function App() {
             <Route
               element={
                 isLoggedIn
-                  ? <MainLayout onLogout={handleLogout} onOpenChat={setActiveChat} />
+                  ? <MainLayout onLogout={handleLogout} onOpenChat={handleOpenChat} unreadMessages={unreadMessages} unreadSenders={unreadSenders} />
                   : <Navigate to="/login" replace />
               }
             >
@@ -161,6 +178,9 @@ export default function App() {
             </Route>
           </Routes>
           <CookieConsent />
+          {isLoggedIn && currentUser?.profileComplete !== true && (
+            <OnboardingModal onComplete={handleOnboardingComplete} />
+          )}
         </BrowserRouter>
 
         {isLoggedIn && activeChat && (

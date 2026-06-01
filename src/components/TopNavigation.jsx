@@ -11,6 +11,7 @@ import IconButton from './IconButton';
 import Toast from './Toast';
 import useToast from '../hooks/useToast';
 import { useUser } from '../context/UserContext';
+import { subscribeUnread, clearUnread } from '../services/chatStore';
 import { useNotifications } from '../context/NotificationContext';
 import { mockUsers, mockCats } from '../data/mockData';
 
@@ -73,7 +74,7 @@ const buildAllCats = () => {
   return [...fromUsers, ...fromCats];
 };
 
-const TopNavigation = ({ onLogout }) => {
+const TopNavigation = ({ onLogout, onOpenChat }) => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { currentUser, setViewedCat } = useUser();
@@ -84,6 +85,21 @@ const TopNavigation = ({ onLogout }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [showMsgPanel, setShowMsgPanel] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [unreadSenders, setUnreadSenders] = useState([]);
+  const msgPanelRef = useRef(null);
+
+  // Subscribe inbox โดยตรงใน TopNavigation
+  useEffect(() => {
+    const uid = currentUser?.uid;
+    if (!uid) return;
+    const unsub = subscribeUnread(uid, (total, senders) => {
+      setUnreadMessages(total);
+      setUnreadSenders(senders);
+    });
+    return unsub;
+  }, [currentUser?.uid]);
   const [toast] = useToast();
   const [bellRing, setBellRing] = useState(false);
 
@@ -125,6 +141,15 @@ const TopNavigation = ({ onLogout }) => {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showSuggestions]);
+
+  useEffect(() => {
+    if (!showMsgPanel) return;
+    const handler = (e) => {
+      if (msgPanelRef.current && !msgPanelRef.current.contains(e.target)) setShowMsgPanel(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showMsgPanel]);
 
   /* Close notification panel on outside click */
   useEffect(() => {
@@ -300,7 +325,69 @@ const TopNavigation = ({ onLogout }) => {
             )}
           </button>
 
-          <IconButton icon={MessageCircle} onClick={() => navigate('/messages')} />
+          <div className="relative" ref={msgPanelRef}>
+            <button
+              onClick={() => unreadMessages > 0 ? setShowMsgPanel(v => !v) : navigate('/messages')}
+              className={`relative p-2.5 rounded-full text-white transition-colors ${showMsgPanel ? 'bg-white/30' : 'bg-white/10 hover:bg-white/20'}`}
+            >
+              <MessageCircle className="w-5 h-5" />
+              {unreadMessages > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center leading-none">
+                  {unreadMessages > 9 ? '9+' : unreadMessages}
+                </span>
+              )}
+            </button>
+
+            {showMsgPanel && (
+              <div className="absolute right-0 top-full mt-2 w-[340px] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden z-50">
+                <div className="px-5 py-3 flex justify-between items-center">
+                  <p className="font-black text-[20px] text-[#050505]">แชท</p>
+                  <button onClick={() => { setShowMsgPanel(false); navigate('/messages'); }}
+                    className="text-[13px] text-[#4267B2] hover:underline font-semibold">ดูทั้งหมด</button>
+                </div>
+
+                {unreadSenders.length === 0 ? (
+                  <div className="px-5 py-6 text-center text-gray-400 text-sm">ไม่มีข้อความใหม่</div>
+                ) : (
+                  <div className="pb-2">
+                    {unreadSenders.map(sender => (
+                      <button
+                        key={sender.uid}
+                        onClick={() => {
+                          setShowMsgPanel(false);
+                          clearUnread(currentUser?.uid, sender.uid).catch(() => {});
+                          onOpenChat?.({ id: sender.uid, uid: sender.uid, userId: sender.uid, name: sender.name, avatar: sender.avatar });
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#f0f2f5] transition-colors text-left rounded-xl mx-2 w-[calc(100%-16px)]"
+                      >
+                        {/* Avatar + blue dot */}
+                        <div className="relative shrink-0">
+                          <img
+                            src={sender.avatar || '/favicon.svg'}
+                            className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm"
+                            alt={sender.name}
+                          />
+                          <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-[#31A24C] border-2 border-white rounded-full" />
+                        </div>
+
+                        {/* Text */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-[14px] text-[#050505] truncate">{sender.name || 'ไม่ทราบชื่อ'}</p>
+                          <p className="text-[13px] text-[#050505] font-semibold truncate">{sender.lastMessage || '...'}</p>
+                          <p className="text-[12px] text-[#4267B2] font-semibold mt-0.5">
+                            {sender.lastTime ? new Date(sender.lastTime).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </p>
+                        </div>
+
+                        {/* Unread dot */}
+                        <div className="w-3 h-3 bg-[#4267B2] rounded-full shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Notification bell with dropdown */}
           <div className="relative" ref={notifPanelRef}>

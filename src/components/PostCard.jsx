@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageCircle, Share2, MoreHorizontal, Globe, SendHorizontal, PawPrint, Link2, X, Repeat2, Trash2, Pencil } from 'lucide-react';
 import PawIcon from './PawIcon';
@@ -7,7 +7,7 @@ import { useNotifications } from '../context/NotificationContext';
 import { translateToMeow } from '../utils/meowTranslator';
 import { mockUsers } from '../data/mockData';
 import MentionText from './MentionText';
-import { socialApi } from '../services/socialApi';
+import { deletePost, updatePost, reactToPost, removeReaction, subscribeComments, addComment } from '../services/postStore';
 
 const REACTIONS = [
   { id: 'paw',   emoji: '🐾', label: 'ส่งอุ้งเท้า', color: 'text-[#4267B2]' },
@@ -117,7 +117,7 @@ const PostCard = ({ post, onDeleted }) => {
 
   const isGuest = !currentUser;
   const currentReaction = REACTIONS.find(r => r.id === reaction) ?? null;
-  const isOwnPost = !isGuest && post.userId === currentUser.id;
+  const isOwnPost = !isGuest && post.userId === currentUser.uid;
   const isAdmin = !isGuest && currentUser.role === 'ADMIN';
   const canDelete = isOwnPost || isAdmin;
 
@@ -125,7 +125,7 @@ const PostCard = ({ post, onDeleted }) => {
     const trimmed = editContent.trim();
     if (!trimmed || trimmed === postContent) { setIsEditing(false); return; }
     try {
-      await socialApi.updatePost(post.id, trimmed);
+      await updatePost(post.id, trimmed);
       setPostContent(trimmed);
       setIsEditing(false);
     } catch { /* ignore */ }
@@ -152,14 +152,14 @@ const PostCard = ({ post, onDeleted }) => {
       setReaction(null);
       setLikeCount(c => c - 1);
       setShowReactions(false);
-      try { await socialApi.removeReaction(post.id); }
+      try { await removeReaction(post.id, currentUser.uid); }
       catch { setReaction(prev); setLikeCount(prevCount); }
     } else {
       setAnimKey(k => k + 1);
       setReaction('paw');
       setLikeCount(c => c + 1);
       setShowReactions(false);
-      try { await socialApi.reactToPost(post.id, 'paw'); }
+      try { await reactToPost(post.id, currentUser.uid, 'paw', null); }
       catch { setReaction(null); setLikeCount(prevCount); }
     }
   };
@@ -172,14 +172,14 @@ const PostCard = ({ post, onDeleted }) => {
       setReaction(null);
       setLikeCount(c => c - 1);
       setShowReactions(false);
-      try { await socialApi.removeReaction(post.id); }
+      try { await removeReaction(post.id, currentUser.uid); }
       catch { setReaction(prev); setLikeCount(prevCount); }
     } else {
       if (!reaction) setLikeCount(c => c + 1);
       setAnimKey(k => k + 1);
       setReaction(id);
       setShowReactions(false);
-      try { await socialApi.reactToPost(post.id, id); }
+      try { await reactToPost(post.id, currentUser.uid, id, reaction); }
       catch { setReaction(prev); setLikeCount(prevCount); }
     }
   };
@@ -192,21 +192,22 @@ const PostCard = ({ post, onDeleted }) => {
     setShowReactions(false);
   };
 
+  useEffect(() => {
+    if (!showComments || commentsLoaded) return;
+    setCommentsLoaded(true);
+    const unsub = subscribeComments(post.id, currentUser?.uid, (data) => {
+      setComments(data);
+      setCommentCount(data.length);
+    });
+    return unsub;
+  }, [showComments, commentsLoaded, post.id, currentUser?.uid]);
+
   /* ── Comment handlers ── */
-  const toggleComments = async () => {
+  const toggleComments = () => {
     if (requireLogin()) return;
     const next = !showComments;
     setShowComments(next);
-    if (next) {
-      setTimeout(() => inputRef.current?.focus(), 0);
-      if (!commentsLoaded) {
-        try {
-          const data = await socialApi.listComments(post.id);
-          setComments(data.comments || []);
-        } catch { /* show empty */ }
-        setCommentsLoaded(true);
-      }
-    }
+    if (next) setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   const handleCommentChange = (e) => {
@@ -243,19 +244,11 @@ const PostCard = ({ post, onDeleted }) => {
     const raw = commentText.trim();
     if (!raw) return;
     const text = translateToMeow(raw);
-    const optimistic = { id: `tmp-${Date.now()}`, name: currentUser.activeCat.name, avatar: currentUser.activeCat.avatar, text, time: 'เมื่อกี้นี้', meow: true, isOwn: true };
-    setComments(prev => [...prev, optimistic]);
-    setCommentCount(c => c + 1);
-    setCommentsLoaded(true);
     setCommentText('');
     setMentionQuery(null);
     try {
-      const data = await socialApi.addComment(post.id, { text, meow: true });
-      setComments(prev => prev.map(c => c.id === optimistic.id ? data.comment : c));
-    } catch {
-      setComments(prev => prev.filter(c => c.id !== optimistic.id));
-      setCommentCount(c => c - 1);
-    }
+      await addComment(post.id, { text, meow: true, currentUser });
+    } catch { /* ignore */ }
     [...raw.matchAll(/@(\S+)/g)].forEach(([, name]) => {
       if (mentionableCats.find(c => c.name === name)) {
         addNotification({
@@ -347,7 +340,7 @@ const PostCard = ({ post, onDeleted }) => {
                     onClick={async () => {
                       setShowMenu(false);
                       try {
-                        await socialApi.deletePost(post.id);
+                        await deletePost(post.id);
                         onDeleted?.(post.id);
                       } catch { /* ignore */ }
                     }}

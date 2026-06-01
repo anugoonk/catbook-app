@@ -1,28 +1,22 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import PawIcon from '../components/PawIcon';
-import { authApi } from '../services/commerceApi';
+import { signInWithGoogle } from '../services/authFirebase';
 
-
-const LoginPage = ({ onLogin }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+const LoginPage = () => {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleGoogleLogin = async () => {
     setIsSubmitting(true);
-
+    setError('');
     try {
-      const { user } = await authApi.login({
-        email: email.trim().toLowerCase(),
-        password,
-      });
-      setError('');
-      onLogin(user);
-    } catch {
-      setError('Email or password is incorrect');
+      await signInWithGoogle();
+      // onAuthStateChanged ใน App.jsx จะจัดการ redirect เอง
+    } catch (err) {
+      if (err.code !== 'auth/popup-closed-by-user') {
+        setError(err.code || err.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -65,60 +59,27 @@ const LoginPage = ({ onLogin }) => {
         <p className="text-xl text-gray-600 font-medium">Pet social commerce platform</p>
       </div>
 
-      <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={e => { setEmail(e.target.value); setError(''); }}
-            className="w-full px-4 py-3 rounded-lg border border-[#dddfe2] focus:outline-none focus:border-[#4267B2] focus:ring-1 focus:ring-[#4267B2] text-[15px]"
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={e => { setPassword(e.target.value); setError(''); }}
-            className="w-full px-4 py-3 rounded-lg border border-[#dddfe2] focus:outline-none focus:border-[#4267B2] focus:ring-1 focus:ring-[#4267B2] text-[15px]"
-            required
-          />
+      <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md space-y-4">
+        <p className="text-center text-gray-500 text-sm">เข้าสู่ระบบเพื่อเริ่มใช้งาน CatBook</p>
 
-          {error && (
-            <p className="text-red-500 text-sm font-medium text-center">{error}</p>
-          )}
+        {error && (
+          <p className="text-red-500 text-sm font-medium text-center">{error}</p>
+        )}
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full bg-[#4267B2] hover:bg-[#3b5998] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-[17px] py-3 rounded-lg transition-colors"
-          >
-            {isSubmitting ? 'Signing in...' : 'Sign in'}
-          </button>
-
-          <div className="text-center pt-1">
-            <button
-              type="button"
-              onClick={() => setError('กรุณาติดต่อ admin@catbook.com เพื่อรีเซ็ตรหัสผ่าน')}
-              className="text-[#4267B2] hover:underline text-sm font-medium"
-            >
-              ลืมรหัสผ่าน?
-            </button>
-          </div>
-        </form>
-
-        <div className="flex items-center gap-3 my-5">
-          <div className="flex-1 border-t border-[#dddfe2]" />
-          <span className="text-[#65676B] text-sm">หรือ</span>
-          <div className="flex-1 border-t border-[#dddfe2]" />
-        </div>
-
-        <Link
-          to="/register"
-          className="block w-full text-center bg-green-500 hover:bg-green-600 text-white font-bold text-[15px] py-2.5 rounded-lg transition-colors"
+        <button
+          onClick={handleGoogleLogin}
+          disabled={isSubmitting}
+          className="w-full flex items-center justify-center gap-3 border border-[#dddfe2] hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed bg-white text-gray-700 font-semibold text-[15px] py-3 rounded-lg transition-colors shadow-sm"
         >
-          สร้างบัญชีใหม่ 🐾
-        </Link>
+          {/* Google logo SVG */}
+          <svg width="20" height="20" viewBox="0 0 48 48">
+            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
+            <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
+            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
+          </svg>
+          {isSubmitting ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบด้วย Google'}
+        </button>
       </div>
 
       <div className="mt-4 text-center text-[12px] text-[#65676B]">

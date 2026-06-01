@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, X } from 'lucide-react';
 import CreatePostBox from '../components/CreatePostBox';
 import PostCard from '../components/PostCard';
-import { socialApi } from '../services/socialApi';
+import { subscribePosts } from '../services/postStore';
 import { useUser } from '../context/UserContext';
 
 const HomePage = () => {
@@ -12,25 +12,14 @@ const HomePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const inputRef = useRef(null);
 
-  const loadPosts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await socialApi.listPosts();
-      setPosts(data.posts || []);
-    } catch {
-      // keep empty — user sees no posts rather than crashing
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    loadPosts();
-  }, [loadPosts]);
-
-  const handleAddPost = (newPost) => {
-    setPosts(prev => [newPost, ...prev]);
-  };
+    setLoading(true);
+    const unsub = subscribePosts((data) => {
+      setPosts(data);
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
 
   const filteredPosts = searchQuery.trim()
     ? posts.filter(p =>
@@ -50,8 +39,8 @@ const HomePage = () => {
             <p className="text-[13px] text-gray-500 mt-0.5">เข้าสู่ระบบเพื่อโพสต์ แสดงความรู้สึก และพูดคุยกับแมวทั่วไทย</p>
           </div>
           <div className="flex gap-2 shrink-0">
-            <a href="/register" className="px-4 py-2 rounded-lg bg-[#4267B2] text-white font-bold text-sm hover:bg-[#3b5998] transition-colors">
-              สมัครสมาชิก
+            <a href="/login" className="px-4 py-2 rounded-lg bg-[#4267B2] text-white font-bold text-sm hover:bg-[#3b5998] transition-colors">
+              เข้าสู่ระบบ
             </a>
             <a href="/login" className="px-4 py-2 rounded-lg border border-[#4267B2] text-[#4267B2] font-bold text-sm hover:bg-blue-50 transition-colors">
               เข้าสู่ระบบ
@@ -60,7 +49,7 @@ const HomePage = () => {
         </div>
       )}
 
-      {!isGuest && <CreatePostBox onAddPost={handleAddPost} />}
+      {!isGuest && <CreatePostBox />}
 
       {/* Search bar */}
       <div className="relative mb-3">

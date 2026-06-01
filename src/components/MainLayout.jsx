@@ -11,7 +11,7 @@ const FEED_ROUTES = ['/'];
 const RIGHT_SIDEBAR_ROUTES = ['/'];
 const FULLWIDTH_ROUTES = ['/marketplace', '/messages', '/admin'];
 
-const MainLayout = ({ onLogout, onOpenChat }) => {
+const MainLayout = ({ onLogout, onOpenChat, unreadMessages = 0, unreadSenders = [] }) => {
   const { pathname } = useLocation();
   const { isCheckoutOpen, setIsCheckoutOpen } = useCart();
   const showRightSidebar = RIGHT_SIDEBAR_ROUTES.includes(pathname);
@@ -20,7 +20,7 @@ const MainLayout = ({ onLogout, onOpenChat }) => {
 
   return (
     <div className="min-h-screen bg-[#f0f2f5] font-sans text-[#050505]">
-      <TopNavigation onLogout={onLogout} />
+      <TopNavigation onLogout={onLogout} unreadMessages={unreadMessages} unreadSenders={unreadSenders} onOpenChat={onOpenChat} />
 
       <div className="pt-[56px]">
         {isFullwidth ? (
