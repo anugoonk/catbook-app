@@ -163,7 +163,7 @@ const SellerDashboardPage = () => {
 
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  const isSeller = true; // all logged-in users can sell
+  const isSeller = currentUser?.role === 'SELLER' || currentUser?.isAdmin;
 
   const loadProducts = useCallback(() => {}, []);
 

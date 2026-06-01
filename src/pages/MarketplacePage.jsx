@@ -394,7 +394,7 @@ const AffiliatePartnerCard = ({ href, color, bgColor, borderColor, icon, name, d
 const MarketplacePage = () => {
   const { currentUser } = useUser();
   const location = useLocation();
-  const isSeller = true;
+  const isSeller = currentUser?.role === 'SELLER' || currentUser?.isAdmin;
   const { addItem, count, setIsOpen } = useCart();
   const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);

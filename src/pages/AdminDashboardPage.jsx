@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart2, Users, FileText, Store, Shield, ArrowLeft,
-  Crown, Search, AlertTriangle, Package, ImagePlus, X,
+  Crown, Search, AlertTriangle, Package, ImagePlus, X, UserCheck,
 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { subscribeAllOrders, updateOrder as updateOrderFirebase, cancelOrder as cancelOrderFirebase } from '../services/orderStore';
@@ -18,6 +18,7 @@ import useToast from '../hooks/useToast';
 const MENU = [
   { id: 'overview',    label: 'ภาพรวมสถิติ',  icon: BarChart2 },
   { id: 'users',       label: 'จัดการสมาชิก',  icon: Users },
+  { id: 'roles',       label: 'จัดการ Role',    icon: UserCheck },
   { id: 'posts',       label: 'จัดการโพสต์',   icon: FileText },
   { id: 'marketplace', label: 'ตลาดนัด',        icon: Store },
   { id: 'lostcats',   label: 'แมวหาย',          icon: AlertTriangle },
@@ -507,6 +508,16 @@ const AdminDashboardPage = () => {
       showToast('เปลี่ยนสิทธิ์ไม่สำเร็จ');
     }
   };
+
+  const setRoleDirect = async (userId, role) => {
+    try {
+      await setUserRole(userId, role);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, role, isAdmin: role === 'ADMIN' } : u));
+      showToast(`เปลี่ยนสิทธิ์เป็น ${ROLE_LABEL_TH[role]} แล้ว`);
+    } catch {
+      showToast('เปลี่ยนสิทธิ์ไม่สำเร็จ');
+    }
+  };
   const deleteUser = async (id) => {
     try {
       await deleteUserDoc(id);
@@ -989,6 +1000,109 @@ const AdminDashboardPage = () => {
                               </button>
                             )}
                           </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {filteredUsers.length === 0 && <p className="text-center text-gray-400 py-12 text-sm">ไม่พบสมาชิก</p>}
+            </div>
+          </div>
+        )}
+
+        {/* ─── Roles ─── */}
+        {tab === 'roles' && (
+          <div>
+            <h1 className="text-[22px] font-bold text-[#050505] mb-1">จัดการ Role</h1>
+            <p className="text-[13px] text-gray-400 mb-4">
+              กำหนดสิทธิ์สมาชิก — <span className="font-semibold text-gray-600">USER</span> ดูและโพสต์ได้ ·{' '}
+              <span className="font-semibold text-amber-600">SELLER</span> ขายสินค้าในตลาดนัดได้ ·{' '}
+              <span className="font-semibold text-[#4267B2]">ADMIN</span> จัดการระบบทั้งหมด
+            </p>
+            <SearchBar value={userSearch} onChange={setUserSearch} placeholder="ค้นหาชื่อแมว, ชื่อ, อีเมล..." />
+
+            {/* Role summary */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              {[
+                { role: 'USER',   label: 'สมาชิก',  color: 'bg-gray-50 border-gray-200',   val: 'text-gray-700',    emoji: '👤' },
+                { role: 'SELLER', label: 'ผู้ขาย',  color: 'bg-amber-50 border-amber-200', val: 'text-amber-700',   emoji: '🛍️' },
+                { role: 'ADMIN',  label: 'Admin',    color: 'bg-blue-50 border-blue-200',   val: 'text-[#4267B2]',   emoji: '🛡️' },
+              ].map(s => (
+                <div key={s.role} className={`rounded-xl border p-4 ${s.color}`}>
+                  <p className="text-[11px] text-gray-500 font-semibold uppercase tracking-wide">{s.emoji} {s.label}</p>
+                  <p className={`text-[28px] font-bold leading-none mt-1 ${s.val}`}>
+                    {users.filter(u => (u.role || 'USER') === s.role).length}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+              <table className="w-full text-sm min-w-[540px]">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <Th>สมาชิก / อีเมล</Th>
+                    <Th center>Role ปัจจุบัน</Th>
+                    <Th center>เปลี่ยนเป็น</Th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredUsers.map(user => {
+                    const cat   = user.activeCat || {};
+                    const role  = user.role || 'USER';
+                    const self  = isSelf(user);
+                    const roleCfg = {
+                      ADMIN:  { label: 'Admin',  cls: 'bg-[#4267B2]/10 text-[#4267B2]',     icon: <Crown className="w-3 h-3" /> },
+                      SELLER: { label: 'ผู้ขาย', cls: 'bg-amber-100 text-amber-700',         icon: null },
+                      USER:   { label: 'สมาชิก', cls: 'bg-gray-100 text-gray-600',           icon: null },
+                    }[role] ?? { label: role, cls: 'bg-gray-100 text-gray-500', icon: null };
+                    const nextRoles = ['USER', 'SELLER', 'ADMIN'].filter(r => r !== role);
+                    const nextRoleLabel = { USER: 'สมาชิก', SELLER: 'ผู้ขาย', ADMIN: 'Admin' };
+                    return (
+                      <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={cat.avatar || user.avatar || '/favicon.svg'}
+                              className="w-9 h-9 rounded-full object-cover shrink-0 border border-gray-200"
+                              alt=""
+                            />
+                            <div className="min-w-0">
+                              <p className="font-semibold text-[13px] leading-tight truncate text-[#050505]">
+                                {cat.name || '—'} {self && <span className="text-[10px] text-[#4267B2] font-semibold">(คุณ)</span>}
+                              </p>
+                              <p className="text-[11px] text-gray-400 truncate">{user.name || '—'}</p>
+                              <p className="text-[11px] text-[#4267B2]/70 truncate">{user.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex items-center gap-1 text-[12px] font-bold px-3 py-1.5 rounded-full ${roleCfg.cls}`}>
+                            {roleCfg.icon}
+                            {roleCfg.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {self ? (
+                            <span className="text-[11px] text-gray-300">—</span>
+                          ) : (
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                              {nextRoles.map(r => (
+                                <button
+                                  key={r}
+                                  onClick={() => setRoleDirect(user.id, r)}
+                                  title={`เปลี่ยนเป็น ${nextRoleLabel[r]}`}
+                                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition-colors border
+                                    ${r === 'ADMIN'  ? 'bg-blue-50 text-[#4267B2] border-blue-200 hover:bg-blue-100'
+                                    : r === 'SELLER' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                                    :                  'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
+                                >
+                                  → {nextRoleLabel[r]}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
