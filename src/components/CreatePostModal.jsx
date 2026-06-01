@@ -129,6 +129,21 @@ const CreatePostModal = ({ isOpen, onClose, initialPanel = null }) => {
     }).catch(() => {});
   }, [isOpen, currentUser?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const addImages = useCallback(async (files) => {
+    const file = Array.from(files).find(f => f.type.startsWith('image/'));
+    if (!file) return;
+    setCompressing(true);
+    try {
+      const b64 = await compressImage(file);
+      setImagePreviews([b64]);
+      setActivePanel('photo');
+    } catch {
+      // ignore compress error
+    } finally {
+      setCompressing(false);
+    }
+  }, []);
+
   const mentionFiltered = mentionQuery !== null
     ? mentionableCats.filter(c => c.name.toLowerCase().includes(mentionQuery.toLowerCase()))
     : [];
@@ -156,21 +171,6 @@ const CreatePostModal = ({ isOpen, onClose, initialPanel = null }) => {
   if (!isOpen) return null;
 
   const canPost = text.trim() || imagePreviews.length > 0;
-
-  const addImages = useCallback(async (files) => {
-    const file = Array.from(files).find(f => f.type.startsWith('image/'));
-    if (!file) return;
-    setCompressing(true);
-    try {
-      const b64 = await compressImage(file);
-      setImagePreviews([b64]);
-      setActivePanel('photo');
-    } catch {
-      // ignore compress error
-    } finally {
-      setCompressing(false);
-    }
-  }, []);
 
   const removeImage = (idx) => {
     setImagePreviews(prev => prev.filter((_, i) => i !== idx));
