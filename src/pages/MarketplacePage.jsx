@@ -339,39 +339,29 @@ const MarketplacePage = () => {
       <div className="hidden md:flex w-[240px] shrink-0 bg-white border-r border-[#e4e6eb] flex-col sticky top-[56px] h-[calc(100vh-56px)] overflow-y-auto">
 
         {/* Shop header */}
-        <div className="px-5 pt-5 pb-4 border-b border-[#f0f2f5]">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-2xl bg-[#FF6B35] flex items-center justify-center shadow-sm shrink-0">
-              <CatSilhouette className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-[17px] font-black text-[#050505] leading-tight">Cat Shop</h1>
-              <p className="text-[11px] text-[#65676B]">สินค้าสำหรับน้องแมว 🐾</p>
-            </div>
-          </div>
-        </div>
+        <div className="px-5 pt-5 pb-3">
+          <h1 className="text-[22px] font-black text-[#050505] mb-1">Cat Shop 🐾</h1>
+          <p className="text-[12px] text-[#65676B] mb-4">สินค้าสำหรับน้องแมวโดยเฉพาะ</p>
 
-        {/* Action buttons */}
-        <div className="px-4 py-3 space-y-2 border-b border-[#f0f2f5]">
-          <button
-            onClick={() => setIsOpen(true)}
-            className="w-full flex items-center justify-between bg-[#fff3ed] hover:bg-[#ffe8dc] border border-[#FF6B35]/20 text-[#FF6B35] font-bold text-[13px] py-2.5 px-4 rounded-2xl transition-colors"
-          >
-            <span className="flex items-center gap-2">🛒 ถาดเหมียว</span>
-            {count > 0 ? (
-              <span className="bg-[#FF6B35] text-white text-[10px] font-black px-2 py-0.5 rounded-full">{count}</span>
-            ) : (
-              <span className="text-[11px] text-[#FF6B35]/40 font-normal">ว่างอยู่</span>
-            )}
-          </button>
           {isSeller && (
             <button
               onClick={() => setIsModalOpen(true)}
-              className="w-full flex items-center justify-center gap-2 bg-[#4267B2] hover:bg-[#3b5998] text-white font-bold text-[13px] py-2.5 rounded-2xl transition-colors"
+              className="w-full flex items-center justify-center gap-2 bg-[#ebf5ff] hover:bg-[#dce9ff] text-[#1877f2] font-semibold text-[14px] py-2.5 rounded-lg transition-colors mb-3"
             >
-              <Plus className="w-4 h-4" /> ลงขายสินค้าใหม่
+              <Plus className="w-4 h-4" />
+              ลงขายสินค้าใหม่
             </button>
           )}
+
+          <button
+            onClick={() => setIsOpen(true)}
+            className="w-full flex items-center justify-between bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-semibold text-[14px] py-2.5 px-4 rounded-lg transition-colors"
+          >
+            <span className="flex items-center gap-2"><span className="text-lg">🛒</span> ถาดเหมียว</span>
+            {count > 0 && (
+              <span className="bg-[#4267B2] text-white text-xs font-black px-2 py-0.5 rounded-full">{count}</span>
+            )}
+          </button>
         </div>
 
         {/* Categories */}
@@ -428,58 +418,41 @@ const MarketplacePage = () => {
       {/* ── Main ── */}
       <div className="flex-1 min-w-0 flex flex-col">
 
-        {/* Hero banner — โทน #4267B2 แทนส้มดิบ */}
-        <div className="relative overflow-hidden px-5 md:px-8 pt-6 pb-5" style={{ background: 'linear-gradient(135deg, #4267B2 0%, #3b5998 55%, #2d4373 100%)' }}>
-          {/* SVG paw prints decorative */}
-          <PawSVG className="absolute top-3 right-20 w-10 h-10 text-white opacity-10 -rotate-12 select-none pointer-events-none" />
-          <PawSVG className="absolute bottom-1 right-10 w-7 h-7 text-white opacity-8 rotate-6 select-none pointer-events-none" />
-
-          {/* SVG cat silhouette */}
-          <CatSilhouette className="absolute right-6 bottom-0 w-28 h-28 text-white opacity-10 select-none pointer-events-none" />
-
-          <div className="relative flex items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="bg-white/20 text-white text-[11px] font-bold px-3 py-1 rounded-full">
-                  {activeCat?.emoji} {activeCategory}
-                </span>
-                {displayed.length > 0 && (
-                  <span className="text-white/50 text-[11px]">{displayed.length} รายการ</span>
-                )}
-              </div>
-              <h1 className="text-white font-black text-[26px] md:text-[28px] leading-tight">Cat Shop</h1>
-              <p className="text-white/60 text-[13px] mt-0.5">สินค้าคัดพิเศษสำหรับน้องแมว</p>
-            </div>
-
-            {/* Mobile actions */}
-            <div className="flex items-center gap-2 md:hidden shrink-0">
-              <button onClick={() => setIsOpen(true)} className="relative bg-white/15 border border-white/25 text-white p-2.5 rounded-xl">
-                <span className="text-xl leading-none">🛒</span>
-                {count > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-[#FF6B35] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">{count}</span>
-                )}
-              </button>
-              {isSeller && (
-                <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-1 bg-white/15 border border-white/25 text-white font-bold text-[13px] px-3 py-2.5 rounded-xl">
-                  <Plus className="w-3.5 h-3.5" /> ลงขาย
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Mobile category pills */}
-          <div className="flex gap-2 mt-4 overflow-x-auto no-scrollbar md:hidden pb-0.5">
+        {/* Mobile top bar */}
+        <div className="flex items-center gap-2 px-4 pt-4 pb-2 md:hidden">
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar flex-1">
             {CATEGORIES.map(({ id, emoji }) => (
               <button
                 key={id}
                 onClick={() => setActiveCategory(id)}
-                className={`shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-[12px] font-bold transition-all
-                  ${activeCategory === id ? 'bg-white text-[#4267B2]' : 'bg-white/15 text-white border border-white/25'}`}
+                className={`shrink-0 px-3 py-1 rounded-full text-[12px] font-semibold transition-colors
+                  ${activeCategory === id ? 'bg-[#1877f2] text-white' : 'bg-white text-[#65676B] border border-[#e4e6eb]'}`}
               >
                 {emoji} {id}
               </button>
             ))}
           </div>
+          <div className="flex gap-1.5 shrink-0">
+            <button onClick={() => setIsOpen(true)} className="relative bg-amber-50 border border-amber-200 text-amber-700 p-2 rounded-lg">
+              <span className="text-lg leading-none">🛒</span>
+              {count > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#4267B2] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">{count}</span>
+              )}
+            </button>
+            {isSeller && (
+              <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-1 bg-[#ebf5ff] text-[#1877f2] font-semibold text-sm px-3 py-1.5 rounded-lg">
+                <Plus className="w-4 h-4" /> ลงขาย
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Simple header */}
+        <div className="flex items-center justify-between px-4 md:px-6 pt-4 pb-2">
+          <h2 className="text-[18px] font-bold text-[#050505]">
+            {activeCategory === 'ทั้งหมด' ? 'สินค้าทั้งหมด' : activeCategory}
+            <span className="text-[#65676B] font-normal text-[14px] ml-2">({displayed.length} รายการ)</span>
+          </h2>
         </div>
 
         {/* Affiliate banner (category selected) */}
