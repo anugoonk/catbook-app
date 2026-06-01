@@ -3,80 +3,83 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users: own doc read/write, others read only (for friend list, profile)
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'anugoonk@gmail.com';
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Users
     match /users/{uid} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == uid;
-      allow update: if request.auth != null && request.auth.uid == uid;
-      allow delete: if request.auth != null && request.auth.uid == uid;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow update: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow delete: if isSignedIn() && (request.auth.uid == uid || isAdmin());
     }
 
-    // Posts: anyone auth can read, only author can write/delete
+    // Posts
     match /posts/{postId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && request.resource.data.authorId == request.auth.uid;
-      allow update: if request.auth != null
-        && resource.data.authorId == request.auth.uid;
-      allow delete: if request.auth != null
-        && resource.data.authorId == request.auth.uid;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin());
 
-      // Comments and reactions: auth required
       match /comments/{commentId} {
-        allow read: if request.auth != null;
-        allow create: if request.auth != null
-          && request.resource.data.authorId == request.auth.uid;
-        allow update, delete: if request.auth != null
-          && resource.data.authorId == request.auth.uid;
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+        allow update, delete: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin());
       }
+
       match /reactions/{uid} {
-        allow read: if request.auth != null;
-        allow write: if request.auth != null && request.auth.uid == uid;
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && (request.auth.uid == uid || isAdmin());
       }
     }
 
-    // Follows: auth required, only own follows
+    // Follows
     match /follows/{docId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && request.resource.data.followerUid == request.auth.uid;
-      allow delete: if request.auth != null
-        && resource.data.followerUid == request.auth.uid;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.followerUid == request.auth.uid;
+      allow delete: if isSignedIn() && (resource.data.followerUid == request.auth.uid || isAdmin());
     }
 
-    // Listings: anyone auth can read, seller can write own listings
+    // Listings (Marketplace)
     match /listings/{listingId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && request.resource.data.sellerUid == request.auth.uid;
-      allow update, delete: if request.auth != null
-        && resource.data.sellerUid == request.auth.uid;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.sellerUid == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.sellerUid == request.auth.uid || isAdmin());
     }
 
-    // Carts: own cart only
+    // Carts
     match /carts/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if isSignedIn() && (request.auth.uid == uid || isAdmin());
     }
 
-    // Orders: buyer can read own orders, create new, admin can read all
+    // Orders
     match /orders/{orderId} {
-      allow read: if request.auth != null
-        && (resource.data.buyerUid == request.auth.uid || request.auth.token.email in ['anugoonk@gmail.com']);
-      allow create: if request.auth != null
-        && request.resource.data.buyerUid == request.auth.uid;
-      allow update: if request.auth != null
-        && (resource.data.buyerUid == request.auth.uid || request.auth.token.email in ['anugoonk@gmail.com']);
+      allow read: if isSignedIn() && (resource.data.buyerUid == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.buyerUid == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.buyerUid == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
     }
 
-    // Chats/messages: participants only
+    // Lost Cats
+    match /lostcats/{docId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (resource.data.posterUid == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (resource.data.posterUid == request.auth.uid || isAdmin());
+    }
+
+    // Chats
     match /chats/{chatId} {
-      allow read, write: if request.auth != null
-        && request.auth.uid in resource.data.participants;
+      allow read, write: if isSignedIn() && request.auth.uid in resource.data.participants;
 
       match /messages/{msgId} {
-        allow read: if request.auth != null;
-        allow create: if request.auth != null
-          && request.resource.data.senderId == request.auth.uid;
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
       }
     }
   }
