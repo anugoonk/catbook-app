@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { subscribeAllOrders, updateOrder as updateOrderFirebase, cancelOrder as cancelOrderFirebase } from '../services/orderStore';
-import { adminApi } from '../services/commerceApi';
+import { subscribeLostCats, updateLostCatStatus, deleteLostCat } from '../services/lostCatStore';
 import { getAllUsers, setUserRole, setUserStatus, deleteUserDoc } from '../services/userStore';
 import { db } from '../firebase';
 import { collection, getDocs, updateDoc, deleteDoc, doc, orderBy, query } from 'firebase/firestore';
@@ -327,14 +327,7 @@ const AdminDashboardPage = () => {
     }
   }, [showToast]);
 
-  const loadLostCats = useCallback(async () => {
-    try {
-      const response = await adminApi.lostCats();
-      setLostCats(response.lostCats || []);
-    } catch {
-      showToast('โหลดประกาศแมวหายไม่สำเร็จ');
-    }
-  }, [showToast]);
+  const loadLostCats = useCallback(() => {}, []);
 
   const loadActivity = useCallback(async () => {
     // activity log ยังไม่ได้ migrate — skip
@@ -345,11 +338,11 @@ const AdminDashboardPage = () => {
     loadMarket();
     loadUsers();
     loadPosts();
-    loadLostCats();
     loadActivity();
-    const unsub = subscribeAllOrders(setOrders);
-    return unsub;
-  }, [currentUser?.isAdmin, loadMarket, loadUsers, loadPosts, loadLostCats, loadActivity]);
+    const unsubOrders = subscribeAllOrders(setOrders);
+    const unsubLostCats = subscribeLostCats(setLostCats);
+    return () => { unsubOrders(); unsubLostCats(); };
+  }, [currentUser?.isAdmin, loadMarket, loadUsers, loadPosts, loadActivity]);
 
   useEffect(() => {
     setTrackingDrafts(prev => Object.fromEntries(orders.map(order => [order.id, prev[order.id] ?? order.trackingNo ?? ''])));
@@ -536,16 +529,14 @@ const AdminDashboardPage = () => {
   const markFound = async (id, currentStatus) => {
     const nextStatus = currentStatus === 'found' ? 'active' : 'found';
     try {
-      const res = await adminApi.updateLostCatStatus(id, nextStatus);
-      setLostCats(p => p.map(c => c.id === id ? res.lostCat : c));
+      await updateLostCatStatus(id, nextStatus);
       showToast(nextStatus === 'found' ? '✅ บันทึกว่าพบแล้ว' : '🔄 เปลี่ยนเป็นยังหายอยู่');
     } catch { showToast('อัปเดตสถานะไม่สำเร็จ'); }
   };
 
   const deleteLost = async (id) => {
     try {
-      await adminApi.deleteLostCat(id);
-      setLostCats(p => p.filter(x => x.id !== id));
+      await deleteLostCat(id);
       setConfirmDelete(null);
       showToast('ลบประกาศเรียบร้อยแล้ว');
     } catch {
