@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart2, Users, FileText, Store, Shield, ArrowLeft,
-  Crown, Search, AlertTriangle, Package,
+  Crown, Search, AlertTriangle, Package, ImagePlus, X,
 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { subscribeAllOrders, updateOrder as updateOrderFirebase, cancelOrder as cancelOrderFirebase } from '../services/orderStore';
@@ -112,8 +112,35 @@ const PRODUCT_FORM_DEFAULT = {
   desc: '',
 };
 
-const productFormInputCls = (hasError) =>
-  `w-full bg-gray-100 rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#4267B2]/30 ${hasError ? 'ring-2 ring-red-300 bg-red-50' : ''}`;
+const PRODUCT_CATEGORIES = ['อาหารแมว', 'ทรายแมว', 'ของเล่น', 'คอนโดและที่นอน', 'ปลอกคอ', 'อุปกรณ์'];
+
+function compressProductImage(file, maxW = 800, maxH = 800, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxW / img.width, maxH / img.height);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+const inputCls = (hasError) =>
+  `w-full bg-[#f0f2f5] rounded-xl px-3 py-2.5 text-[14px] outline-none focus:ring-2 focus:ring-[#4267B2]/25 focus:bg-white transition-all ${hasError ? 'ring-2 ring-red-300 bg-red-50' : ''}`;
+
+const FieldLabel = ({ children, required }) => (
+  <p className="text-[12px] font-bold text-gray-600 mb-1.5">
+    {children}{required && <span className="text-red-400 ml-0.5">*</span>}
+  </p>
+);
 
 const ProductFormModal = ({ product, errors, saving, onClose, onSubmit }) => {
   const [form, setForm] = useState(() => ({
@@ -122,109 +149,213 @@ const ProductFormModal = ({ product, errors, saving, onClose, onSubmit }) => {
     price: product?.price ?? '',
     stock: product?.stock ?? '',
   }));
+  const [imgPreview, setImgPreview] = useState(product?.img || '');
+  const [compressing, setCompressing] = useState(false);
+  const fileRef = useRef(null);
 
-  const set = (key) => (event) => setForm(prev => ({ ...prev, [key]: event.target.value }));
+  const set = (key) => (e) => setForm(prev => ({ ...prev, [key]: e.target.value }));
+
+  const handleImageFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    e.target.value = '';
+    setCompressing(true);
+    try {
+      const b64 = await compressProductImage(file);
+      setImgPreview(b64);
+      setForm(prev => ({ ...prev, img: b64 }));
+    } finally {
+      setCompressing(false);
+    }
+  };
+
+  const handleImgUrlChange = (e) => {
+    setImgPreview(e.target.value);
+    setForm(prev => ({ ...prev, img: e.target.value }));
+  };
 
   return (
-    <div className="fixed inset-0 z-[400] bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl max-h-[92vh] overflow-hidden flex flex-col">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+    <div className="fixed inset-0 z-[400] bg-black/60 flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl max-h-[92vh] overflow-hidden flex flex-col">
+
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
           <div>
-            <h2 className="font-black text-gray-900 text-[18px]">{product ? 'Edit Product' : 'Add Product'}</h2>
-            <p className="text-xs text-gray-400">Product data is saved through Admin Product API</p>
+            <h2 className="font-black text-gray-900 text-[18px]">
+              {product ? '✏️ แก้ไขสินค้า' : '➕ เพิ่มสินค้าใหม่'}
+            </h2>
+            <p className="text-xs text-gray-400 mt-0.5">บันทึกใน Firestore (listings)</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-gray-100">
-            Close
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition-colors">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-5 overflow-y-auto space-y-4">
-          {errors.form && <div className="bg-red-50 text-red-600 rounded-xl px-4 py-3 text-sm font-semibold">{errors.form}</div>}
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {errors.form && (
+            <div className="bg-red-50 text-red-600 rounded-xl px-4 py-3 text-sm font-semibold border border-red-100">
+              {errors.form}
+            </div>
+          )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <label className="text-xs font-bold text-gray-600 space-y-1">
-              SKU *
-              <input value={form.sku} onChange={set('sku')} className={productFormInputCls(errors.sku)} />
-              {errors.sku && <span className="block text-red-500 font-medium">{errors.sku}</span>}
-            </label>
-            <label className="text-xs font-bold text-gray-600 space-y-1">
-              Slug
-              <input value={form.slug} onChange={set('slug')} className={productFormInputCls(false)} />
-            </label>
-            <label className="text-xs font-bold text-gray-600 space-y-1 md:col-span-2">
-              Product name *
-              <input value={form.title} onChange={set('title')} className={productFormInputCls(errors.title)} />
-              {errors.title && <span className="block text-red-500 font-medium">{errors.title}</span>}
-            </label>
-            <label className="text-xs font-bold text-gray-600 space-y-1">
-              Category *
-              <input value={form.category} onChange={set('category')} className={productFormInputCls(errors.category)} />
-              {errors.category && <span className="block text-red-500 font-medium">{errors.category}</span>}
-            </label>
-            <label className="text-xs font-bold text-gray-600 space-y-1">
-              Brand
-              <input value={form.brand} onChange={set('brand')} className={productFormInputCls(false)} />
-            </label>
-            <label className="text-xs font-bold text-gray-600 space-y-1">
-              Price *
-              <input type="number" min="0" value={form.price} onChange={set('price')} className={productFormInputCls(errors.price)} />
-              {errors.price && <span className="block text-red-500 font-medium">{errors.price}</span>}
-            </label>
-            <label className="text-xs font-bold text-gray-600 space-y-1">
-              Stock *
-              <input type="number" min="0" value={form.stock} onChange={set('stock')} className={productFormInputCls(errors.stock)} />
-              {errors.stock && <span className="block text-red-500 font-medium">{errors.stock}</span>}
-            </label>
-            <label className="text-xs font-bold text-gray-600 space-y-1">
-              Species
-              <select value={form.species} onChange={set('species')} className={productFormInputCls(false)}>
-                <option value="cat">cat</option>
-                <option value="dog">dog</option>
-                <option value="all">all</option>
+          {/* Image upload */}
+          <div>
+            <FieldLabel>รูปสินค้า</FieldLabel>
+            <div className="flex gap-3 items-start">
+              {/* Preview */}
+              <div
+                className="w-28 h-28 shrink-0 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden cursor-pointer hover:border-[#4267B2] transition-colors"
+                onClick={() => fileRef.current?.click()}
+              >
+                {compressing ? (
+                  <p className="text-xs text-gray-400 text-center px-2">กำลังบีบอัด...</p>
+                ) : imgPreview ? (
+                  <img src={imgPreview} className="w-full h-full object-cover" alt="" />
+                ) : (
+                  <div className="text-center">
+                    <p className="text-2xl mb-1">📷</p>
+                    <p className="text-[10px] text-gray-400 font-semibold">อัพโหลดรูป</p>
+                  </div>
+                )}
+              </div>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageFile} />
+
+              {/* Right side */}
+              <div className="flex-1 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="w-full flex items-center justify-center gap-2 bg-[#ebf5ff] hover:bg-[#dce9ff] text-[#1877f2] text-sm font-semibold py-2.5 rounded-xl transition-colors"
+                >
+                  <ImagePlus className="w-4 h-4" />
+                  {imgPreview ? 'เปลี่ยนรูป' : 'เลือกไฟล์รูปภาพ'}
+                </button>
+                <p className="text-[11px] text-gray-400 text-center">หรือวาง URL รูปด้านล่าง</p>
+                <input
+                  type="url"
+                  value={imgPreview.startsWith('data:') ? '' : imgPreview}
+                  onChange={handleImgUrlChange}
+                  placeholder="https://example.com/image.jpg"
+                  className={`${inputCls(false)} text-[12px]`}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ชื่อสินค้า */}
+          <div>
+            <FieldLabel required>ชื่อสินค้า</FieldLabel>
+            <input
+              value={form.title}
+              onChange={set('title')}
+              placeholder="เช่น อาหารแมวรสทูน่า 1 กก."
+              className={inputCls(errors.title)}
+            />
+            {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title}</p>}
+          </div>
+
+          {/* ราคา + หมวดหมู่ */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FieldLabel required>ราคา (฿)</FieldLabel>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  value={form.price}
+                  onChange={set('price')}
+                  placeholder="0"
+                  className={`${inputCls(errors.price)} pr-8`}
+                />
+                <span className="absolute right-3 top-2.5 text-gray-400 text-sm">฿</span>
+              </div>
+              {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price}</p>}
+            </div>
+            <div>
+              <FieldLabel required>หมวดหมู่</FieldLabel>
+              <select value={form.category} onChange={set('category')} className={inputCls(errors.category)}>
+                {PRODUCT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-            </label>
-            <label className="text-xs font-bold text-gray-600 space-y-1">
-              Life stage
-              <select value={form.lifeStage} onChange={set('lifeStage')} className={productFormInputCls(false)}>
-                <option value="all">all</option>
-                <option value="kitten">kitten</option>
-                <option value="adult">adult</option>
-                <option value="senior">senior</option>
-              </select>
-            </label>
-            <label className="text-xs font-bold text-gray-600 space-y-1">
-              Status
-              <select value={form.status} onChange={set('status')} className={productFormInputCls(false)}>
-                <option value="active">active</option>
-                <option value="draft">draft</option>
-                <option value="archived">archived</option>
-              </select>
-            </label>
-            <label className="text-xs font-bold text-gray-600 space-y-1">
-              Location
-              <input value={form.location} onChange={set('location')} className={productFormInputCls(false)} />
-            </label>
-            <label className="text-xs font-bold text-gray-600 space-y-1 md:col-span-2">
-              Image URL
-              <input value={form.img} onChange={set('img')} className={productFormInputCls(false)} />
-            </label>
-            <label className="text-xs font-bold text-gray-600 space-y-1 md:col-span-2">
-              Description
-              <textarea value={form.desc} onChange={set('desc')} rows={3} className={`${productFormInputCls(false)} resize-none`} />
-            </label>
+              {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
+            </div>
+          </div>
+
+          {/* จำนวน + พื้นที่ */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FieldLabel required>จำนวนสินค้า (ชิ้น)</FieldLabel>
+              <input
+                type="number"
+                min="0"
+                value={form.stock}
+                onChange={set('stock')}
+                placeholder="0"
+                className={inputCls(errors.stock)}
+              />
+              {errors.stock && <p className="text-red-500 text-xs mt-1">{errors.stock}</p>}
+            </div>
+            <div>
+              <FieldLabel>พื้นที่/จังหวัด</FieldLabel>
+              <input
+                value={form.location}
+                onChange={set('location')}
+                placeholder="เช่น กรุงเทพฯ"
+                className={inputCls(false)}
+              />
+            </div>
+          </div>
+
+          {/* สถานะ */}
+          <div>
+            <FieldLabel>สถานะ</FieldLabel>
+            <div className="flex gap-2">
+              {[
+                { val: 'active', label: '✅ วางขาย', cls: 'bg-green-50 border-green-200 text-green-700' },
+                { val: 'draft',  label: '📝 ร่าง',   cls: 'bg-yellow-50 border-yellow-200 text-yellow-700' },
+                { val: 'archived', label: '📦 เก็บถาวร', cls: 'bg-gray-50 border-gray-200 text-gray-500' },
+              ].map(({ val, label, cls }) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setForm(prev => ({ ...prev, status: val }))}
+                  className={`flex-1 py-2 rounded-xl border-2 text-xs font-bold transition-all ${
+                    form.status === val ? cls + ' ring-2 ring-offset-1 ring-[#4267B2]/30' : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* รายละเอียด */}
+          <div>
+            <FieldLabel>รายละเอียดสินค้า</FieldLabel>
+            <textarea
+              value={form.desc}
+              onChange={set('desc')}
+              rows={3}
+              placeholder="อธิบายสินค้า ขนาด น้ำหนัก คุณสมบัติพิเศษ..."
+              className={`${inputCls(false)} resize-none`}
+            />
           </div>
         </div>
 
-        <div className="px-5 py-4 border-t border-gray-100 flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-gray-100 text-gray-600 text-sm font-bold hover:bg-gray-200">
-            Cancel
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-100 flex gap-3 shrink-0">
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm font-bold hover:bg-gray-200 transition-colors"
+          >
+            ยกเลิก
           </button>
           <button
             onClick={() => onSubmit(form)}
-            disabled={saving}
-            className="px-5 py-2 rounded-xl bg-[#4267B2] text-white text-sm font-black hover:bg-[#3b5998] disabled:bg-gray-300"
+            disabled={saving || compressing}
+            className="flex-1 py-2.5 rounded-xl bg-[#4267B2] text-white text-sm font-black hover:bg-[#3b5998] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
-            {saving ? 'Saving...' : 'Save Product'}
+            {saving ? 'กำลังบันทึก...' : compressing ? 'กำลังบีบอัดรูป...' : product ? 'บันทึกการเปลี่ยนแปลง' : 'เพิ่มสินค้า'}
           </button>
         </div>
       </div>
@@ -448,11 +579,10 @@ const AdminDashboardPage = () => {
   };
   const validateProductForm = (form) => {
     const errors = {};
-    if (!String(form.sku || '').trim()) errors.sku = 'SKU is required';
-    if (!String(form.title || '').trim()) errors.title = 'Product name is required';
-    if (!String(form.category || '').trim()) errors.category = 'Category is required';
-    if (!Number.isFinite(Number(form.price)) || Number(form.price) <= 0) errors.price = 'Price must be greater than 0';
-    if (!Number.isInteger(Number(form.stock)) || Number(form.stock) < 0) errors.stock = 'Stock must be a non-negative integer';
+    if (!String(form.title || '').trim()) errors.title = 'กรุณากรอกชื่อสินค้า';
+    if (!String(form.category || '').trim()) errors.category = 'กรุณาเลือกหมวดหมู่';
+    if (!Number.isFinite(Number(form.price)) || Number(form.price) <= 0) errors.price = 'ราคาต้องมากกว่า 0';
+    if (!Number.isInteger(Number(form.stock)) || Number(form.stock) < 0) errors.stock = 'จำนวนต้องเป็น 0 ขึ้นไป';
     return errors;
   };
   const saveProductForm = async (form) => {
@@ -462,11 +592,20 @@ const AdminDashboardPage = () => {
       return;
     }
 
+    const autoSku = form.sku || `ADM-${Date.now().toString(36).toUpperCase()}`;
     const payload = {
       ...form,
+      sku: autoSku,
+      slug: form.slug || autoSku.toLowerCase(),
       price: Number(form.price),
       stock: Number(form.stock),
-      seller: productFormProduct?.seller || currentUser?.activeCat || null,
+      seller: productFormProduct?.seller || {
+        id: currentUser.uid,
+        uid: currentUser.uid,
+        name: currentUser.activeCat?.name || currentUser.name,
+        avatar: currentUser.activeCat?.avatar || '',
+      },
+      sellerUid: productFormProduct?.sellerUid || currentUser.uid,
     };
 
     setProductFormSaving(true);
