@@ -65,6 +65,34 @@ const LazadaIcon = ({ className = 'w-4 h-4' }) => (
   <img src="https://www.google.com/s2/favicons?domain=lazada.co.th&sz=64" className={`${className} object-contain rounded-sm`} alt="" aria-hidden="true" />
 );
 
+/* ── Cat SVG (ใช้แทน emoji ใน hero) ── */
+const CatSilhouette = ({ className = '' }) => (
+  <svg className={className} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="50" cy="66" rx="28" ry="26" fill="currentColor" />
+    <ellipse cx="50" cy="39" rx="21" ry="20" fill="currentColor" />
+    <polygon points="29,27 21,9 40,23" fill="currentColor" />
+    <polygon points="71,27 79,9 60,23" fill="currentColor" />
+    <circle cx="43" cy="37" r="3.5" fill="rgba(0,0,0,.2)" />
+    <circle cx="57" cy="37" r="3.5" fill="rgba(0,0,0,.2)" />
+    <ellipse cx="50" cy="44" rx="4" ry="3" fill="rgba(255,200,200,.5)" />
+    <line x1="35" y1="42" x2="22" y2="40" stroke="rgba(0,0,0,.15)" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="35" y1="46" x2="22" y2="46" stroke="rgba(0,0,0,.15)" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="65" y1="42" x2="78" y2="40" stroke="rgba(0,0,0,.15)" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="65" y1="46" x2="78" y2="46" stroke="rgba(0,0,0,.15)" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
+/* ── Paw SVG ── */
+const PawSVG = ({ className = '' }) => (
+  <svg className={className} viewBox="0 0 40 40" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="20" cy="27" rx="9" ry="7" />
+    <ellipse cx="9"  cy="16" rx="4.5" ry="3.5" />
+    <ellipse cx="31" cy="16" rx="4.5" ry="3.5" />
+    <ellipse cx="15" cy="10" rx="3.5" ry="3" />
+    <ellipse cx="25" cy="10" rx="3.5" ry="3" />
+  </svg>
+);
+
 /* ── Product Card ── */
 const ProductCard = ({ item, onAdd, onSelect }) => {
   const { currentUser, setViewedCat } = useUser();
@@ -76,11 +104,10 @@ const ProductCard = ({ item, onAdd, onSelect }) => {
   const cartItem = items.find(i => i.product.id === item.id);
   const inCart   = Boolean(cartItem);
   const isAdding = isProductPending(item.id);
+  const catInfo  = CATEGORIES.find(c => c.id === item.category) || { emoji: '🐾' };
 
   const shopeeUrl = item.shopeeUrl || SHOPEE_CAT_LINKS[item.category] || SHOPEE_CAT_LINKS['ทั้งหมด'];
   const lazadaUrl = item.lazadaUrl || LAZADA_CAT_LINKS[item.category] || LAZADA_CAT_LINKS['ทั้งหมด'];
-
-  const catIcon = CATEGORIES.find(c => c.id === item.category)?.emoji || '🐾';
 
   const goToSeller = (e) => {
     e.stopPropagation();
@@ -102,10 +129,10 @@ const ProductCard = ({ item, onAdd, onSelect }) => {
   };
 
   return (
-    <div className="bg-white rounded-2xl overflow-hidden border border-orange-100 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col group">
+    <div className="bg-white rounded-3xl overflow-hidden border border-[#e4e6eb] hover:border-[#4267B2]/30 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col group">
       {/* Image */}
       <div
-        className="aspect-square overflow-hidden bg-orange-50 relative cursor-pointer"
+        className="aspect-square overflow-hidden bg-[#f0f2f5] relative cursor-pointer"
         onClick={() => onSelect(item)}
       >
         {item.img ? (
@@ -117,97 +144,95 @@ const ProductCard = ({ item, onAdd, onSelect }) => {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-5xl opacity-30">{catIcon}</div>
+          <div className="w-full h-full flex items-center justify-center text-5xl opacity-25">
+            {catInfo.emoji}
+          </div>
         )}
 
         {/* Category badge */}
-        <span className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm text-orange-600 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-          {catIcon} {item.category}
+        <span className="absolute top-2 left-2 bg-white/95 text-[#4267B2] text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm">
+          {catInfo.emoji} {item.category}
         </span>
 
-        {/* Status badge */}
         {isOwn && (
-          <span className="absolute top-2 right-2 bg-[#4267B2] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+          <span className="absolute top-2 right-2 bg-[#4267B2] text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm">
             ของคุณ
           </span>
         )}
         {inCart && !isOwn && (
-          <span className="absolute top-2 right-2 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm">
+          <span className="absolute top-2 right-2 bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-0.5 shadow-sm">
             <Check className="w-2.5 h-2.5" /> ×{cartItem.qty}
           </span>
         )}
 
-        {/* Hover overlay */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/8 transition-colors duration-200 flex items-center justify-center">
-          <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur-sm text-[#050505] text-[12px] font-bold px-3 py-1.5 rounded-full shadow-md">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/0 group-hover:from-black/10 transition-all duration-200 flex items-end pb-2.5 justify-center">
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/95 text-[#050505] text-[11px] font-bold px-3 py-1.5 rounded-full shadow">
             ดูรายละเอียด
           </span>
         </div>
       </div>
 
-      <div className="p-3 flex flex-col flex-1 gap-1.5">
+      <div className="p-4 flex flex-col flex-1 gap-2">
         {/* Price */}
         <div className="flex items-baseline gap-1">
-          <p className="font-black text-orange-500 text-[20px] leading-none">{item.price.toLocaleString()}</p>
-          <p className="text-gray-400 text-[12px] font-semibold">฿</p>
+          <span className="font-black text-[22px] text-[#FF6B35] leading-none">{item.price.toLocaleString()}</span>
+          <span className="text-gray-400 text-[12px] font-medium">฿</span>
         </div>
 
         {/* Title */}
         <p
-          className="text-[#050505] text-[13px] font-semibold line-clamp-2 leading-snug cursor-pointer hover:text-orange-500 transition-colors"
+          className="text-[#050505] text-[13px] font-semibold line-clamp-2 leading-snug cursor-pointer hover:text-[#4267B2] transition-colors"
           onClick={() => onSelect(item)}
         >
           {item.title}
         </p>
 
-        {/* Location */}
-        <p className="text-gray-400 text-[11px]">📍 {item.location}</p>
+        <p className="text-[#65676B] text-[11px]">📍 {item.location}</p>
 
-        {/* Seller */}
         {item.seller?.avatar && (
-          <button onClick={goToSeller} className="flex items-center gap-1.5 text-left w-fit mt-0.5 hover:opacity-80 transition-opacity">
-            <img src={item.seller.avatar} loading="lazy" decoding="async" className="w-5 h-5 rounded-full object-cover shrink-0 ring-1 ring-orange-100" alt="" />
-            <span className="text-[11px] text-gray-500 font-medium">{item.seller.name}</span>
+          <button onClick={goToSeller} className="flex items-center gap-1.5 w-fit hover:opacity-75 transition-opacity">
+            <img src={item.seller.avatar} loading="lazy" decoding="async" className="w-5 h-5 rounded-full object-cover ring-1 ring-[#e4e6eb]" alt="" />
+            <span className="text-[11px] text-[#65676B] font-medium">{item.seller.name}</span>
           </button>
         )}
 
         <div className="flex-1" />
 
-        {/* Add to cart button */}
+        {/* Cart button */}
         <button
           onClick={handleAdd}
           disabled={isAdding || isOwn}
-          className={`w-full font-bold text-[13px] py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-[0.97]
+          className={`w-full font-bold text-[13px] py-2.5 rounded-2xl transition-all flex items-center justify-center gap-1.5 active:scale-[0.97]
             ${isOwn
-              ? 'bg-gray-50 text-gray-300 cursor-default'
+              ? 'bg-[#f0f2f5] text-[#bcc0c4] cursor-default'
               : inCart
                 ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100'
                 : isAdding
-                  ? 'bg-orange-100 text-orange-300 cursor-wait'
+                  ? 'bg-[#f0f2f5] text-[#bcc0c4] cursor-wait'
                   : justAdded
-                    ? 'bg-emerald-500 text-white shadow-md'
-                    : 'bg-orange-500 hover:bg-orange-600 text-white shadow-sm hover:shadow-md'}`}
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-[#FF6B35] hover:bg-[#e55a25] text-white shadow-sm'}`}
         >
-          {isOwn ? 'สินค้าของคุณ'
-            : inCart ? <><ShoppingCart className="w-3.5 h-3.5" /> ดูในถาดเหมียว</>
-            : isAdding ? 'กำลังหยิบ...'
-            : justAdded ? <><Check className="w-3.5 h-3.5" /> หยิบแล้ว!</>
-            : <><PawIcon className="w-3.5 h-3.5" /> หยิบใส่ถาด</>}
+          {isOwn    ? 'สินค้าของคุณ'
+          : inCart  ? <><ShoppingCart className="w-3.5 h-3.5" /> ดูในถาดเหมียว</>
+          : isAdding ? 'กำลังหยิบ...'
+          : justAdded ? <><Check className="w-3.5 h-3.5" /> หยิบแล้ว!</>
+          : <><PawIcon className="w-3.5 h-3.5" /> หยิบใส่ถาด</>}
         </button>
 
-        {/* Affiliate row */}
-        <div className="flex gap-1.5 mt-0.5">
+        {/* Affiliate */}
+        <div className="flex gap-1.5">
           <a
             href={shopeeUrl} target="_blank" rel="noopener noreferrer sponsored"
             onClick={() => handleAffiliateClick('shopee', shopeeUrl)}
-            className="flex-1 flex items-center justify-center gap-1 bg-[#fff0ed] hover:bg-[#ffe0d9] text-[#EE4D2D] text-[10px] font-bold py-1.5 rounded-lg transition-colors border border-[#EE4D2D]/15"
+            className="flex-1 flex items-center justify-center gap-1 bg-[#fff0ed] hover:bg-[#ffe0d9] text-[#EE4D2D] text-[10px] font-bold py-1.5 rounded-xl transition-colors border border-[#EE4D2D]/15"
           >
             <ShopeeIcon className="w-3.5 h-3.5" /> Shopee
           </a>
           <a
             href={lazadaUrl} target="_blank" rel="noopener noreferrer sponsored"
             onClick={() => handleAffiliateClick('lazada', lazadaUrl)}
-            className="flex-1 flex items-center justify-center gap-1 bg-[#eeeeff] hover:bg-[#ddddf5] text-[#0F0F60] text-[10px] font-bold py-1.5 rounded-lg transition-colors border border-[#0F0F60]/10"
+            className="flex-1 flex items-center justify-center gap-1 bg-[#eeeeff] hover:bg-[#ddddf5] text-[#0F0F60] text-[10px] font-bold py-1.5 rounded-xl transition-colors border border-[#0F0F60]/10"
           >
             <LazadaIcon className="w-3.5 h-3.5" /> Lazada
           </a>
@@ -282,7 +307,7 @@ const MarketplacePage = () => {
   useEffect(() => {
     setSeoMeta({
       title: activeCategory === 'ทั้งหมด' ? 'CatBook Shop | สินค้าสัตว์เลี้ยง' : `${activeCategory} | CatBook Shop`,
-      description: 'เลือกซื้ออาหาร ขนม ของเล่น อุปกรณ์ และบริการสำหรับสัตว์เลี้ยง',
+      description: 'เลือกซื้ออาหาร ขนม ของเล่น อุปกรณ์ สำหรับสัตว์เลี้ยง',
       url: '/marketplace',
     });
     trackMarketingEvent('view_marketplace', { category: activeCategory, total_items: displayed.length });
@@ -307,71 +332,68 @@ const MarketplacePage = () => {
   const activeCat  = CATEGORIES.find(c => c.id === activeCategory);
 
   return (
-    <div className="flex w-full min-h-[calc(100vh-56px)]" style={{ background: 'linear-gradient(180deg, #FFF5EE 0%, #F9F5FF 100%)' }}>
+    <div className="flex w-full min-h-[calc(100vh-56px)] bg-[#f0f2f5]">
       <Toast message={toast} />
 
       {/* ── Sidebar ── */}
-      <div className="hidden md:flex w-[260px] shrink-0 flex-col sticky top-[56px] h-[calc(100vh-56px)] overflow-y-auto border-r border-orange-100 bg-white/70 backdrop-blur-sm">
+      <div className="hidden md:flex w-[240px] shrink-0 bg-white border-r border-[#e4e6eb] flex-col sticky top-[56px] h-[calc(100vh-56px)] overflow-y-auto">
 
-        {/* Header */}
-        <div className="px-5 pt-5 pb-4 border-b border-orange-100">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">🛍️</span>
-            <h1 className="text-[20px] font-black text-[#050505]">Cat Shop</h1>
+        {/* Shop header */}
+        <div className="px-5 pt-5 pb-4 border-b border-[#f0f2f5]">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-10 h-10 rounded-2xl bg-[#FF6B35] flex items-center justify-center shadow-sm shrink-0">
+              <CatSilhouette className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-[17px] font-black text-[#050505] leading-tight">Cat Shop</h1>
+              <p className="text-[11px] text-[#65676B]">สินค้าสำหรับน้องแมว 🐾</p>
+            </div>
           </div>
-          <p className="text-[12px] text-gray-400">สินค้าสำหรับน้องแมวโดยเฉพาะ</p>
         </div>
 
         {/* Action buttons */}
-        <div className="px-4 py-3 space-y-2 border-b border-orange-100">
-          {/* Cart */}
+        <div className="px-4 py-3 space-y-2 border-b border-[#f0f2f5]">
           <button
             onClick={() => setIsOpen(true)}
-            className="w-full flex items-center justify-between bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-700 font-bold text-[14px] py-2.5 px-4 rounded-xl transition-colors"
+            className="w-full flex items-center justify-between bg-[#fff3ed] hover:bg-[#ffe8dc] border border-[#FF6B35]/20 text-[#FF6B35] font-bold text-[13px] py-2.5 px-4 rounded-2xl transition-colors"
           >
-            <span className="flex items-center gap-2">
-              <span className="text-lg">🛒</span>
-              ถาดเหมียว
-            </span>
+            <span className="flex items-center gap-2">🛒 ถาดเหมียว</span>
             {count > 0 ? (
-              <span className="bg-orange-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{count}</span>
+              <span className="bg-[#FF6B35] text-white text-[10px] font-black px-2 py-0.5 rounded-full">{count}</span>
             ) : (
-              <span className="text-[11px] text-orange-300 font-normal">ว่างอยู่</span>
+              <span className="text-[11px] text-[#FF6B35]/40 font-normal">ว่างอยู่</span>
             )}
           </button>
-
-          {/* Sell button */}
           {isSeller && (
             <button
               onClick={() => setIsModalOpen(true)}
-              className="w-full flex items-center justify-center gap-2 bg-[#4267B2] hover:bg-[#3b5998] text-white font-bold text-[14px] py-2.5 rounded-xl transition-colors shadow-sm"
+              className="w-full flex items-center justify-center gap-2 bg-[#4267B2] hover:bg-[#3b5998] text-white font-bold text-[13px] py-2.5 rounded-2xl transition-colors"
             >
-              <Plus className="w-4 h-4" />
-              ลงขายสินค้าใหม่
+              <Plus className="w-4 h-4" /> ลงขายสินค้าใหม่
             </button>
           )}
         </div>
 
         {/* Categories */}
         <div className="px-4 py-4 flex-1">
-          <p className="text-[11px] font-bold text-gray-400 mb-3 uppercase tracking-wider">หมวดหมู่สินค้า</p>
+          <p className="text-[10px] font-black text-[#bcc0c4] uppercase tracking-widest mb-3">หมวดหมู่</p>
           <div className="space-y-0.5">
             {CATEGORIES.map(({ id, emoji }) => {
-              const count = id === 'ทั้งหมด' ? items.length : items.filter(i => i.category === id).length;
+              const cnt = id === 'ทั้งหมด' ? items.length : items.filter(i => i.category === id).length;
               const isActive = activeCategory === id;
               return (
                 <button
                   key={id}
                   onClick={() => setActiveCategory(id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-[13px] font-medium transition-all
                     ${isActive
-                      ? 'bg-orange-50 text-orange-600 font-bold shadow-sm border border-orange-200'
-                      : 'text-gray-600 hover:bg-orange-50/60 hover:text-orange-500'}`}
+                      ? 'bg-[#ebf5ff] text-[#4267B2] font-bold'
+                      : 'text-[#65676B] hover:bg-[#f0f2f5]'}`}
                 >
-                  <span className="text-lg w-6 text-center">{emoji}</span>
+                  <span className="text-base w-6 text-center">{emoji}</span>
                   <span className="flex-1 text-left">{id}</span>
-                  <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-semibold ${isActive ? 'bg-orange-200/60 text-orange-600' : 'text-gray-300'}`}>
-                    {count}
+                  <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-semibold ${isActive ? 'bg-[#4267B2]/15 text-[#4267B2]' : 'text-[#bcc0c4]'}`}>
+                    {cnt}
                   </span>
                 </button>
               );
@@ -379,79 +401,66 @@ const MarketplacePage = () => {
           </div>
         </div>
 
-        {/* Affiliate Partners */}
-        <div className="px-4 pb-5 border-t border-orange-100 pt-3">
-          <p className="text-[11px] font-bold text-gray-400 mb-2.5 uppercase tracking-wider">ช้อปพาร์ทเนอร์</p>
-          <a
-            href={shopeeLink} target="_blank" rel="noopener noreferrer sponsored"
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[#fff0ed] border border-[#EE4D2D]/20 hover:bg-[#ffe0d9] transition-colors mb-2 group"
-          >
+        {/* Affiliate partners */}
+        <div className="px-4 pb-5 border-t border-[#f0f2f5] pt-3">
+          <p className="text-[10px] font-black text-[#bcc0c4] uppercase tracking-widest mb-2.5">ช้อปพาร์ทเนอร์</p>
+          <a href={shopeeLink} target="_blank" rel="noopener noreferrer sponsored"
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-[#fff0ed] border border-[#EE4D2D]/15 hover:bg-[#ffe0d9] transition-colors mb-2 group">
             <ShopeeIcon className="w-7 h-7 shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-black text-[#EE4D2D]">Shopee</p>
-              <p className="text-[10px] text-gray-400 truncate">ส่งฟรี · ราคาดี</p>
+              <p className="text-[12px] font-black text-[#EE4D2D]">Shopee</p>
+              <p className="text-[10px] text-[#65676B] truncate">ส่งฟรี · ราคาดี</p>
             </div>
-            <ExternalLink className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-400 shrink-0" />
+            <ExternalLink className="w-3.5 h-3.5 text-[#bcc0c4] group-hover:text-[#EE4D2D] shrink-0 transition-colors" />
           </a>
-          <a
-            href={lazadaLink} target="_blank" rel="noopener noreferrer sponsored"
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[#eeeeff] border border-[#0F0F60]/15 hover:bg-[#ddddf5] transition-colors group"
-          >
+          <a href={lazadaLink} target="_blank" rel="noopener noreferrer sponsored"
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-[#eeeeff] border border-[#0F0F60]/10 hover:bg-[#ddddf5] transition-colors group">
             <LazadaIcon className="w-7 h-7 shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-black text-[#0F0F60]">Lazada</p>
-              <p className="text-[10px] text-gray-400 truncate">ลดราคา · คืนง่าย</p>
+              <p className="text-[12px] font-black text-[#0F0F60]">Lazada</p>
+              <p className="text-[10px] text-[#65676B] truncate">ลดราคา · คืนง่าย</p>
             </div>
-            <ExternalLink className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-400 shrink-0" />
+            <ExternalLink className="w-3.5 h-3.5 text-[#bcc0c4] group-hover:text-[#0F0F60] shrink-0 transition-colors" />
           </a>
         </div>
       </div>
 
-      {/* ── Main content ── */}
+      {/* ── Main ── */}
       <div className="flex-1 min-w-0 flex flex-col">
 
-        {/* Hero banner */}
-        <div className="relative overflow-hidden px-4 md:px-8 pt-6 pb-5"
-          style={{ background: 'linear-gradient(135deg, #FF8C42 0%, #FF6B35 40%, #F7552A 100%)' }}>
-          {/* Decorative paws */}
-          <span className="absolute top-2 right-16 text-white/10 text-7xl select-none pointer-events-none">🐾</span>
-          <span className="absolute bottom-1 right-4 text-white/10 text-5xl select-none pointer-events-none rotate-12">🐾</span>
-          <span className="absolute top-4 left-[55%] text-white/5 text-8xl select-none pointer-events-none -rotate-12">🐱</span>
+        {/* Hero banner — โทน #4267B2 แทนส้มดิบ */}
+        <div className="relative overflow-hidden px-5 md:px-8 pt-6 pb-5" style={{ background: 'linear-gradient(135deg, #4267B2 0%, #3b5998 55%, #2d4373 100%)' }}>
+          {/* SVG paw prints decorative */}
+          <PawSVG className="absolute top-3 right-20 w-10 h-10 text-white opacity-10 -rotate-12 select-none pointer-events-none" />
+          <PawSVG className="absolute bottom-1 right-10 w-7 h-7 text-white opacity-8 rotate-6 select-none pointer-events-none" />
+
+          {/* SVG cat silhouette */}
+          <CatSilhouette className="absolute right-6 bottom-0 w-28 h-28 text-white opacity-10 select-none pointer-events-none" />
 
           <div className="relative flex items-center justify-between gap-4">
             <div>
-              <h1 className="text-white font-black text-[24px] md:text-[28px] leading-tight drop-shadow-sm">
-                {activeCategory === 'ทั้งหมด' ? (
-                  <>Cat Shop <span className="text-white/70 text-[18px] font-semibold">🐾</span></>
-                ) : (
-                  <>{activeCat?.emoji} {activeCategory}</>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="bg-white/20 text-white text-[11px] font-bold px-3 py-1 rounded-full">
+                  {activeCat?.emoji} {activeCategory}
+                </span>
+                {displayed.length > 0 && (
+                  <span className="text-white/50 text-[11px]">{displayed.length} รายการ</span>
                 )}
-              </h1>
-              <p className="text-white/70 text-[13px] mt-0.5">
-                {displayed.length > 0
-                  ? `${displayed.length} รายการรอน้องเหมียวอยู่`
-                  : 'ยังไม่มีสินค้า'}
-              </p>
+              </div>
+              <h1 className="text-white font-black text-[26px] md:text-[28px] leading-tight">Cat Shop</h1>
+              <p className="text-white/60 text-[13px] mt-0.5">สินค้าคัดพิเศษสำหรับน้องแมว</p>
             </div>
 
-            {/* Mobile action buttons */}
+            {/* Mobile actions */}
             <div className="flex items-center gap-2 md:hidden shrink-0">
-              <button
-                onClick={() => setIsOpen(true)}
-                className="relative bg-white/20 backdrop-blur-sm border border-white/30 text-white p-2.5 rounded-xl"
-              >
+              <button onClick={() => setIsOpen(true)} className="relative bg-white/15 border border-white/25 text-white p-2.5 rounded-xl">
                 <span className="text-xl leading-none">🛒</span>
                 {count > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-white text-orange-500 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
-                    {count}
-                  </span>
+                  <span className="absolute -top-1 -right-1 bg-[#FF6B35] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">{count}</span>
                 )}
               </button>
               {isSeller && (
-                <button
-                  onClick={() => setIsModalOpen(true)}
-                  className="flex items-center gap-1 bg-white/20 backdrop-blur-sm border border-white/30 text-white font-bold text-[13px] px-3 py-2.5 rounded-xl"
-                >
+                <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-1 bg-white/15 border border-white/25 text-white font-bold text-[13px] px-3 py-2.5 rounded-xl">
                   <Plus className="w-3.5 h-3.5" /> ลงขาย
                 </button>
               )}
@@ -465,9 +474,7 @@ const MarketplacePage = () => {
                 key={id}
                 onClick={() => setActiveCategory(id)}
                 className={`shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-[12px] font-bold transition-all
-                  ${activeCategory === id
-                    ? 'bg-white text-orange-500 shadow-md'
-                    : 'bg-white/20 text-white border border-white/30'}`}
+                  ${activeCategory === id ? 'bg-white text-[#4267B2]' : 'bg-white/15 text-white border border-white/25'}`}
               >
                 {emoji} {id}
               </button>
@@ -475,14 +482,12 @@ const MarketplacePage = () => {
           </div>
         </div>
 
-        {/* Affiliate banner — shown when category selected */}
+        {/* Affiliate banner (category selected) */}
         {activeCategory !== 'ทั้งหมด' && (
           <div className="flex gap-2 px-4 md:px-8 pt-4">
-            <a
-              href={shopeeLink} target="_blank" rel="noopener noreferrer sponsored"
+            <a href={shopeeLink} target="_blank" rel="noopener noreferrer sponsored"
               onClick={() => trackMarketingEvent('affiliate_banner_click', { platform: 'shopee', category: activeCategory })}
-              className="flex-1 flex items-center gap-2 bg-gradient-to-r from-[#EE4D2D] to-[#ff7043] text-white rounded-xl px-4 py-2.5 hover:opacity-95 transition-opacity shadow-sm"
-            >
+              className="flex-1 flex items-center gap-2 bg-gradient-to-r from-[#EE4D2D] to-[#ff7043] text-white rounded-2xl px-4 py-2.5 hover:opacity-95 transition-opacity shadow-sm">
               <ShopeeIcon className="w-7 h-7 shrink-0" />
               <div className="min-w-0">
                 <p className="text-[12px] font-black leading-tight">ดู {activeCategory} ใน Shopee</p>
@@ -490,11 +495,9 @@ const MarketplacePage = () => {
               </div>
               <ExternalLink className="w-3.5 h-3.5 opacity-60 shrink-0 ml-auto" />
             </a>
-            <a
-              href={lazadaLink} target="_blank" rel="noopener noreferrer sponsored"
+            <a href={lazadaLink} target="_blank" rel="noopener noreferrer sponsored"
               onClick={() => trackMarketingEvent('affiliate_banner_click', { platform: 'lazada', category: activeCategory })}
-              className="flex-1 flex items-center gap-2 bg-gradient-to-r from-[#0F0F60] to-[#1a1a8c] text-white rounded-xl px-4 py-2.5 hover:opacity-95 transition-opacity shadow-sm"
-            >
+              className="flex-1 flex items-center gap-2 bg-gradient-to-r from-[#0F0F60] to-[#1a1a8c] text-white rounded-2xl px-4 py-2.5 hover:opacity-95 transition-opacity shadow-sm">
               <LazadaIcon className="w-7 h-7 shrink-0" />
               <div className="min-w-0">
                 <p className="text-[12px] font-black leading-tight">ดู {activeCategory} ใน Lazada</p>
@@ -506,37 +509,39 @@ const MarketplacePage = () => {
         )}
 
         {/* Product grid */}
-        <div className="flex-1 p-4 md:p-8 md:pt-4">
+        <div className="flex-1 p-4 md:p-6 md:pt-4">
           {isLoading ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {Array.from({ length: 8 }).map((_, idx) => (
-                <div key={idx} className="bg-white rounded-2xl border border-orange-100 overflow-hidden animate-pulse">
-                  <div className="aspect-square bg-orange-50" />
-                  <div className="p-3 space-y-2.5">
-                    <div className="h-5 bg-orange-50 rounded-lg w-20" />
-                    <div className="h-3 bg-gray-100 rounded-lg" />
-                    <div className="h-3 bg-gray-100 rounded-lg w-3/4" />
-                    <div className="h-9 bg-orange-100 rounded-xl mt-3" />
+                <div key={idx} className="bg-white rounded-3xl border border-[#e4e6eb] overflow-hidden animate-pulse">
+                  <div className="aspect-square bg-[#f0f2f5]" />
+                  <div className="p-4 space-y-2.5">
+                    <div className="h-5 bg-[#f0f2f5] rounded-xl w-20" />
+                    <div className="h-3 bg-[#f0f2f5] rounded-xl" />
+                    <div className="h-3 bg-[#f0f2f5] rounded-xl w-3/4" />
+                    <div className="h-9 bg-[#f0f2f5] rounded-2xl mt-3" />
                     <div className="flex gap-1.5">
-                      <div className="h-7 flex-1 bg-orange-50 rounded-lg" />
-                      <div className="h-7 flex-1 bg-indigo-50 rounded-lg" />
+                      <div className="h-7 flex-1 bg-[#fff0ed] rounded-xl" />
+                      <div className="h-7 flex-1 bg-[#eeeeff] rounded-xl" />
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           ) : displayed.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-orange-100 p-12 text-center shadow-sm">
-              <p className="text-6xl mb-3">🐱</p>
-              <p className="font-bold text-gray-700 text-[16px]">ยังไม่มีสินค้าในหมวดนี้</p>
-              <p className="text-gray-400 text-[13px] mt-1 mb-5">ลองดูใน marketplace ข้างนอกได้เลย</p>
+            <div className="bg-white rounded-3xl border border-[#e4e6eb] p-12 text-center">
+              <div className="w-16 h-16 rounded-3xl bg-[#f0f2f5] flex items-center justify-center mx-auto mb-4">
+                <CatSilhouette className="w-9 h-9 text-[#bcc0c4]" />
+              </div>
+              <p className="font-bold text-[#050505] text-[16px]">ยังไม่มีสินค้าในหมวดนี้</p>
+              <p className="text-[#65676B] text-[13px] mt-1 mb-5">ลองดูใน marketplace ข้างนอกได้เลย</p>
               <div className="flex gap-2 justify-center">
                 <a href={shopeeLink} target="_blank" rel="noopener noreferrer sponsored"
-                  className="flex items-center gap-1.5 bg-[#EE4D2D] text-white text-[13px] font-bold px-4 py-2.5 rounded-xl shadow-sm">
+                  className="flex items-center gap-1.5 bg-[#EE4D2D] text-white text-[13px] font-bold px-4 py-2.5 rounded-2xl shadow-sm">
                   <ShopeeIcon className="w-4 h-4" /> Shopee
                 </a>
                 <a href={lazadaLink} target="_blank" rel="noopener noreferrer sponsored"
-                  className="flex items-center gap-1.5 bg-[#0F0F60] text-white text-[13px] font-bold px-4 py-2.5 rounded-xl shadow-sm">
+                  className="flex items-center gap-1.5 bg-[#0F0F60] text-white text-[13px] font-bold px-4 py-2.5 rounded-2xl shadow-sm">
                   <LazadaIcon className="w-4 h-4" /> Lazada
                 </a>
               </div>
@@ -551,22 +556,16 @@ const MarketplacePage = () => {
 
           {/* Bottom affiliate strip */}
           {!isLoading && displayed.length > 0 && (
-            <div className="mt-6 flex items-center gap-3 bg-white rounded-2xl border border-orange-100 px-4 py-3 shadow-sm">
-              <span className="text-[13px] text-gray-500 flex-1">
-                🔍 หาสินค้าเพิ่มเติมใน marketplace ชั้นนำ
-              </span>
-              <a
-                href={shopeeLink} target="_blank" rel="noopener noreferrer sponsored"
+            <div className="mt-5 flex items-center gap-3 bg-white rounded-2xl border border-[#e4e6eb] px-4 py-3">
+              <span className="text-[13px] text-[#65676B] flex-1">🔍 หาสินค้าเพิ่มเติมใน marketplace ชั้นนำ</span>
+              <a href={shopeeLink} target="_blank" rel="noopener noreferrer sponsored"
                 onClick={() => trackMarketingEvent('affiliate_strip_click', { platform: 'shopee', category: activeCategory })}
-                className="shrink-0 flex items-center gap-1.5 bg-[#EE4D2D] hover:bg-[#d63a1e] text-white text-[12px] font-bold px-3 py-1.5 rounded-lg transition-colors"
-              >
+                className="shrink-0 flex items-center gap-1.5 bg-[#EE4D2D] hover:bg-[#d63a1e] text-white text-[12px] font-bold px-3 py-1.5 rounded-xl transition-colors">
                 <ShopeeIcon className="w-3.5 h-3.5" /> Shopee
               </a>
-              <a
-                href={lazadaLink} target="_blank" rel="noopener noreferrer sponsored"
+              <a href={lazadaLink} target="_blank" rel="noopener noreferrer sponsored"
                 onClick={() => trackMarketingEvent('affiliate_strip_click', { platform: 'lazada', category: activeCategory })}
-                className="shrink-0 flex items-center gap-1.5 bg-[#0F0F60] hover:bg-[#0a0a48] text-white text-[12px] font-bold px-3 py-1.5 rounded-lg transition-colors"
-              >
+                className="shrink-0 flex items-center gap-1.5 bg-[#0F0F60] hover:bg-[#0a0a48] text-white text-[12px] font-bold px-3 py-1.5 rounded-xl transition-colors">
                 <LazadaIcon className="w-3.5 h-3.5" /> Lazada
               </a>
             </div>
@@ -581,7 +580,6 @@ const MarketplacePage = () => {
           onSubmit={handleAddListing}
         />
       )}
-
       {selectedProduct && (
         <ProductDetailModal
           product={selectedProduct}
