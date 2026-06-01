@@ -3,76 +3,22 @@ import { Calendar, MapPin, Plus } from 'lucide-react';
 import Toast from '../components/Toast';
 import useToast from '../hooks/useToast';
 import CreateEventModal from '../components/CreateEventModal';
-import { mockUsers } from '../data/mockData';
 import { useUser } from '../context/UserContext';
-
-const buildEvents = (users) => {
-  const [u1, u2, u3, u4] = users;
-  return [
-    {
-      id: 'e1',
-      title: 'งานแสดงแมวประจำปี 2025',
-      date: '25 พ.ค. 2025',
-      location: 'ศูนย์การค้าเซ็นทรัล',
-      img: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400&q=80',
-      organizer: u1.activeCat,
-      attendees: [u2.activeCat, u3.activeCat],
-    },
-    {
-      id: 'e2',
-      title: 'กิจกรรมรับเลี้ยงแมวไร้บ้าน',
-      date: '1 มิ.ย. 2025',
-      location: 'สวนลุมพินี กรุงเทพฯ',
-      img: 'https://images.unsplash.com/photo-1555685812-4b943f1cb0eb?w=400&q=80',
-      organizer: u2.activeCat,
-      attendees: [u1.activeCat, u4.activeCat],
-    },
-    {
-      id: 'e3',
-      title: 'Cat Cafe Meetup',
-      date: '10 มิ.ย. 2025',
-      location: 'Cat Cafe Silom',
-      img: 'https://images.unsplash.com/photo-1513245543132-31f507417b26?w=400&q=80',
-      organizer: u3.activeCat,
-      attendees: [u4.activeCat, u1.activeCat, u2.activeCat],
-    },
-  ];
-};
-
-const AttendeeStack = ({ attendees }) => {
-  const visible = attendees.slice(0, 4);
-  const extra = attendees.length - visible.length;
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex -space-x-2">
-        {visible.map(a => (
-          <img
-            key={a.id}
-            src={a.avatar}
-            title={a.name}
-            className="w-7 h-7 rounded-full object-cover border-2 border-white shadow-sm"
-            alt={a.name}
-          />
-        ))}
-        {extra > 0 && (
-          <div className="w-7 h-7 rounded-full bg-[#e4e6eb] border-2 border-white flex items-center justify-center text-[10px] font-bold text-[#65676B]">
-            +{extra}
-          </div>
-        )}
-      </div>
-      <span className="text-[12px] text-[#65676B]">{attendees.length} คนสนใจ</span>
-    </div>
-  );
-};
+import { subscribeEvents, createEvent, attendEvent, leaveEvent } from '../services/eventStore';
 
 const EventCard = ({ event, currentUser, onToggle }) => {
-  const isAttending = event.attendees.some(a => a.id === currentUser.activeCat.id);
-  const isOrganizer = event.organizer.id === currentUser.activeCat.id;
+  const isAttending = (event.attendeeUids || []).includes(currentUser.uid);
+  const isOrganizer = event.organizerUid === currentUser.uid || event.organizer?.id === currentUser.uid;
+  const count = (event.attendeeUids || []).length;
 
   return (
     <div className="bg-white rounded-xl border border-[#dddfe2] overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
       <div className="relative">
-        <img src={event.img} className="w-full h-40 object-cover" alt={event.title} />
+        {event.img ? (
+          <img src={event.img} className="w-full h-40 object-cover" alt={event.title} />
+        ) : (
+          <div className="w-full h-40 bg-blue-50 flex items-center justify-center text-5xl">📅</div>
+        )}
         {isOrganizer && (
           <span className="absolute top-2 left-2 bg-[#4267B2] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
             ผู้จัดงาน
@@ -81,10 +27,13 @@ const EventCard = ({ event, currentUser, onToggle }) => {
       </div>
 
       <div className="p-4 flex flex-col flex-1">
-        {/* Organizer */}
         <div className="flex items-center gap-1.5 mb-2">
-          <img src={event.organizer.avatar} className="w-5 h-5 rounded-full object-cover shrink-0" alt="" />
-          <span className="text-[12px] text-[#65676B]">จัดโดย <span className="font-semibold text-[#050505]">{event.organizer.name}</span></span>
+          {event.organizer?.avatar && (
+            <img src={event.organizer.avatar} className="w-5 h-5 rounded-full object-cover shrink-0" alt="" />
+          )}
+          <span className="text-[12px] text-[#65676B]">
+            จัดโดย <span className="font-semibold text-[#050505]">{event.organizer?.name}</span>
+          </span>
         </div>
 
         <h3 className="font-bold text-[#050505] text-[15px] mb-3 leading-snug">{event.title}</h3>
@@ -100,12 +49,12 @@ const EventCard = ({ event, currentUser, onToggle }) => {
           </div>
         </div>
 
-        <div className="mb-4">
-          <AttendeeStack attendees={event.attendees} />
-        </div>
+        {count > 0 && (
+          <p className="text-[12px] text-[#65676B] mb-3">🐾 {count} คนสนใจ</p>
+        )}
 
         <button
-          onClick={() => onToggle(event.id)}
+          onClick={() => onToggle(event)}
           disabled={isOrganizer}
           className={`mt-auto w-full font-semibold text-sm py-2 rounded-lg transition-colors
             ${isOrganizer
@@ -121,34 +70,76 @@ const EventCard = ({ event, currentUser, onToggle }) => {
   );
 };
 
+function compressImg(file, maxW = 800, maxH = 500, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxW / img.width, maxH / img.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 const EventsPage = () => {
   const { currentUser } = useUser();
-  const [events, setEvents] = useState(() => buildEvents(mockUsers));
+  const [events, setEvents] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toast, showToast] = useToast();
 
   useEffect(() => {
-    setEvents(buildEvents(mockUsers));
-  }, [currentUser.activeCat.id]);
+    const unsub = subscribeEvents(setEvents);
+    return unsub;
+  }, []);
 
-  const handleAddEvent = (newEvent) => {
-    setEvents(prev => [newEvent, ...prev]);
-    showToast(`สร้างกิจกรรม "${newEvent.title}" เรียบร้อยแล้ว! 📅`);
+  const handleAddEvent = async (newEvent) => {
+    try {
+      let img = newEvent.img;
+      if (img && img.startsWith('blob:')) {
+        const res = await fetch(img);
+        const blob = await res.blob();
+        img = await compressImg(new File([blob], 'img.jpg', { type: blob.type }));
+        URL.revokeObjectURL(newEvent.img);
+      }
+      await createEvent({
+        title: newEvent.title || '',
+        date: newEvent.date || '',
+        location: newEvent.location || '',
+        img: img || '',
+        organizerUid: currentUser.uid,
+        organizer: {
+          id: currentUser.uid,
+          name: currentUser.activeCat?.name || currentUser.name,
+          avatar: currentUser.activeCat?.avatar || '',
+        },
+        attendeeUids: [],
+      });
+      showToast(`สร้างกิจกรรม "${newEvent.title}" เรียบร้อยแล้ว! 📅`);
+    } catch {
+      showToast('สร้างกิจกรรมไม่สำเร็จ กรุณาลองใหม่');
+    }
   };
 
-  const toggleAttend = (eventId) => {
-    setEvents(prev => prev.map(ev => {
-      if (ev.id !== eventId) return ev;
-      const already = ev.attendees.some(a => a.id === currentUser.activeCat.id);
-      const next = already
-        ? ev.attendees.filter(a => a.id !== currentUser.activeCat.id)
-        : [...ev.attendees, currentUser.activeCat];
-      showToast(already
-        ? `ยกเลิกความสนใจใน "${ev.title}" แล้ว`
-        : `บันทึกความสนใจใน "${ev.title}" แล้ว! 📅`
-      );
-      return { ...ev, attendees: next };
-    }));
+  const toggleAttend = async (event) => {
+    const isAttending = (event.attendeeUids || []).includes(currentUser.uid);
+    try {
+      if (isAttending) {
+        await leaveEvent(event.id, currentUser.uid);
+        showToast(`ยกเลิกความสนใจใน "${event.title}" แล้ว`);
+      } else {
+        await attendEvent(event.id, currentUser.uid);
+        showToast(`บันทึกความสนใจใน "${event.title}" แล้ว! 📅`);
+      }
+    } catch {
+      showToast('เกิดข้อผิดพลาด กรุณาลองใหม่');
+    }
   };
 
   return (
@@ -165,6 +156,14 @@ const EventsPage = () => {
           สร้างกิจกรรม
         </button>
       </div>
+
+      {events.length === 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 py-16 text-center text-gray-400">
+          <p className="text-4xl mb-2">📅</p>
+          <p className="font-semibold">ยังไม่มีกิจกรรม</p>
+          <p className="text-sm mt-1">สร้างกิจกรรมแรกได้เลย</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {events.map(event => (

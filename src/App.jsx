@@ -173,7 +173,7 @@ export default function App() {
               <Route path="/orders"          element={lazyElement(OrdersPage)} />
               <Route path="/orders/:orderId" element={lazyElement(OrderDetailPage)} />
               <Route path="/admin"         element={currentUser?.isAdmin ? lazyElement(AdminDashboardPage) : <Navigate to="/" replace />} />
-              <Route path="/seller"        element={(currentUser?.role === 'SELLER' || currentUser?.isAdmin) ? lazyElement(SellerDashboardPage) : <Navigate to="/" replace />} />
+              <Route path="/seller"        element={lazyElement(SellerDashboardPage)} />
               <Route path="*"              element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

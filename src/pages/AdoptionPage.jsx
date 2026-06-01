@@ -3,74 +3,42 @@ import { CheckCircle, Heart, Plus, Phone } from 'lucide-react';
 import Toast from '../components/Toast';
 import useToast from '../hooks/useToast';
 import CreateAdoptionModal from '../components/CreateAdoptionModal';
-import { mockUsers } from '../data/mockData';
 import { useUser } from '../context/UserContext';
+import { subscribeAdoptions, createAdoption } from '../services/adoptionStore';
 
-const buildAdoption = (users) => {
-  const [u1, u2, u3, u4] = users;
-  return [
-    {
-      id: 'a1',
-      name: 'น้องด่าง',
-      age: '3 เดือน',
-      gender: 'เมีย',
-      location: 'กรุงเทพฯ',
-      story: 'แมวสีขาวด่างดำ ขี้อ้อน ชอบนอนตัก ฉีดวัคซีนครบแล้ว ต้องการบ้านที่อบอุ่น',
-      contact: '081-234-5678',
-      img: 'https://images.unsplash.com/photo-1606428784795-3bd66cde4315?w=400&q=80',
-      poster: u4.activeCat,
-    },
-    {
-      id: 'a2',
-      name: 'สามสี',
-      age: '1 ปี',
-      gender: 'เมีย',
-      location: 'เชียงใหม่',
-      story: 'แมวสามสีนิสัยดี เลี้ยงง่าย กินอาหารไม่เลือก ทำหมันแล้ว พร้อมย้ายบ้านทันที',
-      contact: '089-876-5432',
-      img: 'https://images.unsplash.com/photo-1555685812-4b943f1cb0eb?w=400&q=80',
-      poster: u2.activeCat,
-    },
-    {
-      id: 'a3',
-      name: 'เจ้าขาว',
-      age: '6 เดือน',
-      gender: 'ผู้',
-      location: 'ปทุมธานี',
-      story: 'แมวขาวล้วน ตาฟ้า ซนนิดหน่อยแต่น่ารักมาก ชอบเล่นของเล่น ยังไม่ทำหมัน',
-      contact: '062-111-2233',
-      img: 'https://images.unsplash.com/photo-1548247416-ec66f4900b2e?w=400&q=80',
-      poster: u1.activeCat,
-    },
-    {
-      id: 'a4',
-      name: 'มิดไนท์',
-      age: '2 ปี',
-      gender: 'ผู้',
-      location: 'นนทบุรี',
-      story: 'แมวดำล้วน นิสัยเงียบขรึม ชอบนั่งดูทิวทัศน์ ฉีดวัคซีนครบ ทำหมันแล้ว เหมาะกับคนชอบความสงบ',
-      contact: '095-555-7890',
-      img: 'https://images.unsplash.com/photo-1543769657-fcf29e6b1a0d?w=400&q=80',
-      poster: u3.activeCat,
-    },
-  ];
-};
+function compressImg(file, maxW = 800, maxH = 600, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxW / img.width, maxH / img.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
 
 const AdoptionPage = () => {
   const { currentUser } = useUser();
-  const [adoption, setAdoption] = useState(() => buildAdoption(mockUsers));
-  const [adoptState, setAdoptState] = useState(
-    () => Object.fromEntries(buildAdoption(mockUsers).map(c => [c.id, 'idle']))
-  );
+  const [adoption, setAdoption] = useState([]);
+  const [adoptState, setAdoptState] = useState({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toast, showToast] = useToast();
   const [successToast, showSuccessToast] = useToast();
 
   useEffect(() => {
-    const fresh = buildAdoption(mockUsers);
-    setAdoption(fresh);
-    setAdoptState(Object.fromEntries(fresh.map(c => [c.id, 'idle'])));
-  }, [currentUser.activeCat.id]);
+    const unsub = subscribeAdoptions((cats) => {
+      setAdoption(cats);
+      setAdoptState(prev => Object.fromEntries(cats.map(c => [c.id, prev[c.id] ?? 'idle'])));
+    });
+    return unsub;
+  }, []);
 
   const handleAdopt = (cat) => {
     if (adoptState[cat.id] !== 'idle') return;
@@ -78,10 +46,34 @@ const AdoptionPage = () => {
     showSuccessToast('ส่งความสนใจรับเลี้ยงเรียบร้อยแล้ว! ผู้ประกาศจะติดต่อกลับไป');
   };
 
-  const handleAddAdoption = (newCat) => {
-    setAdoption(prev => [newCat, ...prev]);
-    setAdoptState(prev => ({ ...prev, [newCat.id]: 'idle' }));
-    showToast(`ประกาศหาบ้านให้ "${newCat.name}" เรียบร้อยแล้ว! 🐾`);
+  const handleAddAdoption = async (newCat) => {
+    try {
+      let img = newCat.img;
+      if (img && img.startsWith('blob:')) {
+        const res = await fetch(img);
+        const blob = await res.blob();
+        img = await compressImg(new File([blob], 'img.jpg', { type: blob.type }));
+        URL.revokeObjectURL(newCat.img);
+      }
+      await createAdoption({
+        name: newCat.name || '',
+        age: newCat.age || '',
+        gender: newCat.gender || 'ผู้',
+        location: newCat.location || '',
+        story: newCat.story || '',
+        contact: newCat.contact || '',
+        img: img || '',
+        posterUid: currentUser.uid,
+        poster: {
+          id: currentUser.uid,
+          name: currentUser.activeCat?.name || currentUser.name,
+          avatar: currentUser.activeCat?.avatar || '',
+        },
+      });
+      showToast(`ประกาศหาบ้านให้ "${newCat.name}" เรียบร้อยแล้ว! 🐾`);
+    } catch {
+      showToast('ประกาศไม่สำเร็จ กรุณาลองใหม่');
+    }
   };
 
   return (
@@ -104,35 +96,46 @@ const AdoptionPage = () => {
         </button>
       </div>
 
+      {adoption.length === 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 py-16 text-center text-gray-400">
+          <p className="text-4xl mb-2">🏡</p>
+          <p className="font-semibold">ยังไม่มีประกาศหาบ้าน</p>
+          <p className="text-sm mt-1">เป็นคนแรกที่ช่วยน้องแมวหาบ้านใหม่</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {adoption.map(cat => {
           const requested = adoptState[cat.id] === 'requested';
-          const isOwn = cat.poster.id === currentUser.activeCat.id;
+          const isOwn = cat.posterUid === currentUser.uid || cat.poster?.id === currentUser.uid;
 
           return (
             <div key={cat.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
-              <img src={cat.img} className="w-full h-44 object-cover" alt={cat.name} />
+              {cat.img ? (
+                <img src={cat.img} className="w-full h-44 object-cover" alt={cat.name} />
+              ) : (
+                <div className="w-full h-44 bg-orange-50 flex items-center justify-center text-5xl">🐱</div>
+              )}
               <div className="p-4 flex flex-col flex-1">
 
                 {/* Poster */}
                 <div className="flex items-center gap-1.5 mb-2">
-                  <img src={cat.poster.avatar} className="w-4 h-4 rounded-full object-cover shrink-0" alt="" />
+                  {cat.poster?.avatar && (
+                    <img src={cat.poster.avatar} className="w-4 h-4 rounded-full object-cover shrink-0" alt="" />
+                  )}
                   <span className="text-[11px] text-[#65676B]">
-                    ประกาศโดย <span className="font-semibold text-[#050505]">{cat.poster.name}</span>
+                    ประกาศโดย <span className="font-semibold text-[#050505]">{cat.poster?.name}</span>
                     {isOwn && <span className="text-[#4267B2]"> (คุณ)</span>}
                   </span>
                 </div>
 
-                {/* Name + meta */}
                 <h3 className="font-bold text-[15px] text-gray-800 leading-tight">{cat.name}</h3>
                 <p className="text-[12px] text-gray-400 mt-0.5 mb-2">
                   {cat.gender === 'ผู้' ? '♂' : '♀'} {cat.gender} · อายุ {cat.age} · {cat.location}
                 </p>
 
-                {/* Story */}
                 <p className="text-[12px] text-gray-500 leading-snug mb-3 flex-1 line-clamp-3">{cat.story}</p>
 
-                {/* Contact reveal after expressing interest */}
                 {requested && !isOwn && cat.contact && (
                   <div className="mb-3 bg-green-50 border border-green-200 rounded-lg px-3 py-2 flex items-center gap-2">
                     <Phone className="w-3.5 h-3.5 text-green-600 shrink-0" />
