@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Image as ImageIcon, UserPlus, Smile, Upload } from 'lucide-react';
-import { mockUsers } from '../data/mockData';
+import { getCachedUsers } from '../services/userStore';
 import { useUser } from '../context/UserContext';
 import { useNotifications } from '../context/NotificationContext';
 import { translateToMeow } from '../utils/meowTranslator';
@@ -117,9 +117,18 @@ const CreatePostModal = ({ isOpen, onClose, initialPanel = null }) => {
   const fileInputRef = useRef(null);
   const cursorRef = useRef(0);
 
-  const mentionableCats = mockUsers
-    .filter(u => u.activeCat.id !== currentUser?.activeCat?.id)
-    .map(u => u.activeCat);
+  const [mentionableCats, setMentionableCats] = useState([]);
+  useEffect(() => {
+    if (!isOpen || !currentUser) return;
+    getCachedUsers().then(users => {
+      setMentionableCats(
+        users
+          .filter(u => u.uid !== currentUser.uid && u.activeCat?.name)
+          .map(u => ({ id: u.uid, name: u.activeCat.name, avatar: u.activeCat.avatar || '', breed: u.activeCat.breed || '' }))
+      );
+    }).catch(() => {});
+  }, [isOpen, currentUser?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const mentionFiltered = mentionQuery !== null
     ? mentionableCats.filter(c => c.name.toLowerCase().includes(mentionQuery.toLowerCase()))
     : [];
@@ -245,10 +254,7 @@ const CreatePostModal = ({ isOpen, onClose, initialPanel = null }) => {
     setActivePanel(null);
   };
 
-  const friends = mockUsers
-    .filter(u => u.activeCat.id !== currentUser.activeCat.id)
-    .map(u => u.activeCat);
-  const filteredCats = friends.filter(c =>
+  const filteredCats = mentionableCats.filter(c =>
     c.name.toLowerCase().includes(tagSearch.toLowerCase())
   );
 

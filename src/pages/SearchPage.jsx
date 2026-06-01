@@ -1,28 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, MapPin, Gift, PawPrint } from 'lucide-react';
-import { mockUsers, mockCats, mockPosts, mockLostCats } from '../data/mockData';
 import { useUser } from '../context/UserContext';
-
-const buildAllCats = () => {
-  const fromUsers = mockUsers.map(u => ({
-    id: u.activeCat.id,
-    name: u.activeCat.name,
-    avatar: u.activeCat.avatar,
-    breed: u.activeCat.breed || '—',
-    ownerName: u.ownerName,
-    bio: u.activeCat.bio || '',
-    status: u.activeCat.status || '',
-  }));
-  const userIds = new Set(fromUsers.map(c => c.id));
-  const fromCats = mockCats
-    .filter(c => !userIds.has(c.id))
-    .map(c => ({ id: c.id, name: c.name, avatar: c.avatar, breed: c.breed || '—', ownerName: c.owner, bio: '', status: '' }));
-  return [...fromUsers, ...fromCats];
-};
+import { getCachedUsers } from '../services/userStore';
+import { subscribeLostCats } from '../services/lostCatStore';
+import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { db } from '../firebase';
 
 const highlight = (text, q) => {
-  if (!q) return text;
+  if (!q || !text) return text || '';
   const idx = text.toLowerCase().indexOf(q.toLowerCase());
   if (idx === -1) return text;
   return (
@@ -36,55 +22,96 @@ const highlight = (text, q) => {
 
 const SearchPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { setViewedCat } = useUser();
+  const { currentUser, setViewedCat } = useUser();
   const navigate = useNavigate();
-  const [query, setQuery] = useState(searchParams.get('q') || '');
+  const [query2, setQuery2] = useState(searchParams.get('q') || '');
   const [activeTab, setActiveTab] = useState('all');
 
-  const allCats = useMemo(buildAllCats, []);
+  const [allCats, setAllCats] = useState([]);
+  const [allPosts, setAllPosts] = useState([]);
+  const [allLostCats, setAllLostCats] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const q = query.trim().toLowerCase();
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
 
-  const matchedCats = q
+    Promise.all([
+      getCachedUsers(),
+      getDocs(query(collection(db, 'posts'), orderBy('createdAt', 'desc'), limit(300))),
+    ]).then(([users, postsSnap]) => {
+      if (!mounted) return;
+      setAllCats(
+        users
+          .filter(u => u.activeCat?.name)
+          .map(u => ({
+            id: u.uid,
+            uid: u.uid,
+            name: u.activeCat.name,
+            avatar: u.activeCat.avatar || '/favicon.svg',
+            breed: u.activeCat.breed || '—',
+            ownerName: u.name || '',
+            bio: u.activeCat.bio || '',
+          }))
+      );
+      setAllPosts(
+        postsSnap.docs.map(d => {
+          const p = d.data();
+          return {
+            id: d.id,
+            content: p.content || '',
+            feeling: p.feeling || '',
+            image: p.imageUrl || null,
+            cat: { id: p.authorId, name: p.authorName || '', avatar: p.authorAvatar || '' },
+            likeCount: p.likeCount || 0,
+            commentCount: p.commentCount || 0,
+            createdAt: p.createdAt?.toDate?.()?.toLocaleDateString('th-TH') || '',
+          };
+        })
+      );
+    }).catch(() => {}).finally(() => { if (mounted) setLoading(false); });
+
+    const unsubLost = subscribeLostCats(cats => { if (mounted) setAllLostCats(cats); });
+
+    return () => { mounted = false; unsubLost(); };
+  }, []);
+
+  const q = query2.trim().toLowerCase();
+
+  const matchedCats = useMemo(() => q
     ? allCats.filter(c =>
         c.name.toLowerCase().includes(q) ||
         c.breed.toLowerCase().includes(q) ||
         c.ownerName.toLowerCase().includes(q)
       )
-    : [];
+    : [], [q, allCats]);
 
-  const matchedPosts = q
-    ? mockPosts.filter(p =>
+  const matchedPosts = useMemo(() => q
+    ? allPosts.filter(p =>
         p.content.toLowerCase().includes(q) ||
-        (p.feeling || '').toLowerCase().includes(q) ||
-        (p.location || '').toLowerCase().includes(q) ||
+        p.feeling.toLowerCase().includes(q) ||
         p.cat.name.toLowerCase().includes(q)
       )
-    : [];
+    : [], [q, allPosts]);
 
-  const matchedLostCats = q
-    ? mockLostCats.filter(l =>
-        l.name.toLowerCase().includes(q) ||
-        l.location.toLowerCase().includes(q)
+  const matchedLostCats = useMemo(() => q
+    ? allLostCats.filter(l =>
+        (l.name || '').toLowerCase().includes(q) ||
+        (l.location || '').toLowerCase().includes(q) ||
+        (l.breed || '').toLowerCase().includes(q)
       )
-    : [];
+    : [], [q, allLostCats]);
 
   const totalResults = matchedCats.length + matchedPosts.length + matchedLostCats.length;
 
   const handleChange = (val) => {
-    setQuery(val);
+    setQuery2(val);
     setSearchParams(val.trim() ? { q: val.trim() } : {});
     setActiveTab('all');
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && query.trim()) {
-      setSearchParams({ q: query.trim() });
-    }
-  };
-
   const goToProfile = (cat) => {
-    setViewedCat({ id: cat.id, name: cat.name, avatar: cat.avatar });
+    setViewedCat({ id: cat.id || cat.uid, uid: cat.id || cat.uid, name: cat.name, avatar: cat.avatar });
     navigate('/profile');
   };
 
@@ -103,9 +130,8 @@ const SearchPage = () => {
           <Search className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
-            value={query}
+            value={query2}
             onChange={e => handleChange(e.target.value)}
-            onKeyDown={handleKeyDown}
             placeholder="ค้นหาแมว โพสต์ หรือสถานที่..."
             autoFocus
             className="w-full bg-[#f0f2f5] rounded-full py-3 pl-12 pr-4 text-[15px] outline-none focus:ring-2 focus:ring-[#4267B2]/20 transition-all"
@@ -113,8 +139,7 @@ const SearchPage = () => {
         </div>
         {q && (
           <p className="text-sm text-gray-500 mt-2.5 pl-1">
-            พบ <span className="font-semibold text-gray-800">{totalResults}</span> รายการสำหรับ{' '}
-            <span className="font-semibold text-[#4267B2]">"{query.trim()}"</span>
+            {loading ? 'กำลังโหลด...' : <>พบ <span className="font-semibold text-gray-800">{totalResults}</span> รายการสำหรับ{' '}<span className="font-semibold text-[#4267B2]">"{query2.trim()}"</span></>}
           </p>
         )}
       </div>
@@ -147,7 +172,7 @@ const SearchPage = () => {
       )}
 
       {/* No results */}
-      {q && totalResults === 0 && (
+      {q && !loading && totalResults === 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 py-16 text-center">
           <p className="text-5xl mb-3">🐾</p>
           <p className="font-semibold text-gray-500">ไม่พบผลการค้นหา</p>
@@ -175,8 +200,8 @@ const SearchPage = () => {
                   >
                     <img src={cat.avatar} className="w-12 h-12 rounded-full object-cover shrink-0 border-2 border-white shadow-sm" alt="" />
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-gray-800">{highlight(cat.name, query.trim())}</p>
-                      <p className="text-sm text-gray-500">{highlight(cat.breed, query.trim())} · ทาส: {highlight(cat.ownerName, query.trim())}</p>
+                      <p className="font-bold text-gray-800">{highlight(cat.name, query2.trim())}</p>
+                      <p className="text-sm text-gray-500">{highlight(cat.breed, query2.trim())} · ทาส: {highlight(cat.ownerName, query2.trim())}</p>
                       {cat.bio && <p className="text-xs text-gray-400 truncate mt-0.5">{cat.bio}</p>}
                     </div>
                     <button
@@ -203,16 +228,16 @@ const SearchPage = () => {
                   <div
                     key={post.id}
                     className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => goToProfile({ id: post.cat.id, name: post.cat.name, avatar: post.cat.avatar })}
+                    onClick={() => goToProfile(post.cat)}
                   >
                     <img src={post.cat.avatar} className="w-10 h-10 rounded-full object-cover shrink-0 border border-gray-200 mt-0.5" alt="" />
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-gray-800 text-sm">{post.cat.name}</p>
-                      <p className="text-[13px] text-gray-600 mt-0.5 line-clamp-2">{highlight(post.content, query.trim())}</p>
+                      <p className="text-[13px] text-gray-600 mt-0.5 line-clamp-2">{highlight(post.content, query2.trim())}</p>
                       <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
-                        <span>{post.time}</span>
-                        <span>🐾 {post.likes}</span>
-                        <span>💬 {post.comments}</span>
+                        <span>{post.createdAt}</span>
+                        <span>🐾 {post.likeCount}</span>
+                        <span>💬 {post.commentCount}</span>
                       </div>
                     </div>
                     {post.image && (
@@ -233,15 +258,15 @@ const SearchPage = () => {
               </div>
               <div className="divide-y divide-gray-50">
                 {matchedLostCats.map(cat => (
-                  <div key={cat.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer">
-                    <img src={cat.img} className="w-12 h-12 rounded-full object-cover shrink-0 border border-gray-200" alt="" />
+                  <div key={cat.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                    <img src={cat.img || '/favicon.svg'} className="w-12 h-12 rounded-full object-cover shrink-0 border border-gray-200" alt="" />
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-gray-800">{highlight(cat.name, query.trim())}</p>
+                      <p className="font-bold text-gray-800">{highlight(cat.name, query2.trim())}</p>
                       <p className="text-sm text-gray-500 flex items-center gap-1">
                         <MapPin className="w-3 h-3 shrink-0" />
-                        {highlight(cat.location, query.trim())}
+                        {highlight(cat.location, query2.trim())}
                       </p>
-                      <p className="text-xs text-gray-400 mt-0.5">หายเมื่อ {cat.lastSeen}</p>
+                      {cat.lastSeen && <p className="text-xs text-gray-400 mt-0.5">หายเมื่อ {cat.lastSeen}</p>}
                     </div>
                     {cat.reward > 0 && (
                       <span className="shrink-0 bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">

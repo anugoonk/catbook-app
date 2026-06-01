@@ -5,7 +5,7 @@ import PawIcon from './PawIcon';
 import { useUser } from '../context/UserContext';
 import { useNotifications } from '../context/NotificationContext';
 import { translateToMeow } from '../utils/meowTranslator';
-import { mockUsers } from '../data/mockData';
+import { getCachedUsers } from '../services/userStore';
 import MentionText from './MentionText';
 import { deletePost, updatePost, reactToPost, removeReaction, subscribeComments, addComment } from '../services/postStore';
 
@@ -108,9 +108,18 @@ const PostCard = ({ post, onDeleted }) => {
   const inputRef = useRef(null);
   const cursorRef = useRef(0);
 
-  const mentionableCats = currentUser
-    ? mockUsers.filter(u => u.activeCat.id !== currentUser.activeCat.id).map(u => u.activeCat)
-    : [];
+  const [mentionableCats, setMentionableCats] = useState([]);
+  useEffect(() => {
+    if (mentionQuery === null || !currentUser) return;
+    getCachedUsers().then(users => {
+      setMentionableCats(
+        users
+          .filter(u => u.uid !== currentUser.uid && u.activeCat?.name)
+          .map(u => ({ id: u.uid, name: u.activeCat.name, avatar: u.activeCat.avatar || '', breed: u.activeCat.breed || '' }))
+      );
+    }).catch(() => {});
+  }, [mentionQuery === null, currentUser?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const mentionFiltered = mentionQuery !== null
     ? mentionableCats.filter(c => c.name.toLowerCase().includes(mentionQuery.toLowerCase()))
     : [];
