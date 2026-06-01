@@ -334,13 +334,14 @@ const MarketplacePage = () => {
       {/* ── Sidebar ── */}
       <div className="hidden md:block w-[280px] shrink-0 bg-white border-r border-[#e4e6eb] sticky top-[56px] h-[calc(100vh-56px)] overflow-y-auto no-scrollbar px-2 pt-3 pb-4">
 
-        {/* Header — style เดียวกับ LeftSidebar */}
-        <div className="px-3 pt-1 pb-3">
-          <div className="flex items-center gap-2">
-            <PawIcon className="w-6 h-6 text-[#4267B2] shrink-0" />
-            <h1 className="text-[17px] font-semibold text-[#050505]">Cat Shop</h1>
-          </div>
-          <p className="text-[13px] text-[#65676B] mt-0.5 ml-8">สินค้าสำหรับน้องแมวโดยเฉพาะ</p>
+        {/* Header — logo */}
+        <div className="px-3 pt-2 pb-3">
+          <img
+            src="/logo-shop.png"
+            alt="Cat Shop"
+            className="h-12 w-auto object-contain"
+          />
+          <p className="text-[13px] text-[#65676B] mt-1">สินค้าสำหรับน้องแมวโดยเฉพาะ</p>
         </div>
 
         {/* Action buttons */}
