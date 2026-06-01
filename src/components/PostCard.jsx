@@ -104,6 +104,7 @@ const PostCard = ({ post, onDeleted }) => {
   const [postContent, setPostContent] = useState(post.content || '');
   const [mentionQuery, setMentionQuery] = useState(null);
   const [mentionStart, setMentionStart] = useState(0);
+  const [meowMode, setMeowMode] = useState(false);
   const hoverTimerRef = useRef(null);
   const inputRef = useRef(null);
   const cursorRef = useRef(0);
@@ -242,13 +243,17 @@ const PostCard = ({ post, onDeleted }) => {
 
   const submitComment = async () => {
     const raw = commentText.trim();
-    if (!raw) return;
-    const text = translateToMeow(raw);
+    if (!raw || !currentUser) return;
+    const text = meowMode ? translateToMeow(raw) : raw;
     setCommentText('');
     setMentionQuery(null);
     try {
-      await addComment(post.id, { text, meow: true, currentUser });
-    } catch { /* ignore */ }
+      await addComment(post.id, { text, meow: meowMode, currentUser });
+    } catch {
+      setCommentText(raw);
+      showToast('ส่งคอมเมนต์ไม่สำเร็จ กรุณาลองใหม่');
+      return;
+    }
     [...raw.matchAll(/@(\S+)/g)].forEach(([, name]) => {
       if (mentionableCats.find(c => c.name === name)) {
         addNotification({
@@ -518,9 +523,23 @@ const PostCard = ({ post, onDeleted }) => {
                   onSelect={handleInputSelect}
                   onClick={handleInputSelect}
                   onKeyDown={handleKeyDown}
-                  placeholder="เมี๊ยวๆ... พิมพ์แล้วแมวจะแปลให้เอง 🐾"
-                  className="w-full rounded-full py-2 pl-10 pr-9 text-[15px] outline-none transition-all bg-purple-50 hover:bg-purple-100/70 focus:ring-2 focus:ring-purple-300 placeholder:text-purple-400"
+                  placeholder={meowMode ? 'เมี๊ยวๆ... ข้อความจะแปลงเป็นภาษาแมว 🐾' : 'เขียนคอมเมนต์...'}
+                  className={`w-full rounded-full py-2 pl-10 pr-16 text-[15px] outline-none transition-all ${
+                    meowMode
+                      ? 'bg-purple-50 hover:bg-purple-100/70 focus:ring-2 focus:ring-purple-300 placeholder:text-purple-400'
+                      : 'bg-[#f0f2f5] hover:bg-[#e4e6eb] focus:ring-2 focus:ring-[#4267B2]/20 placeholder:text-gray-400'
+                  }`}
                 />
+                {/* Meow toggle */}
+                <button
+                  onClick={() => setMeowMode(m => !m)}
+                  title={meowMode ? 'ปิดโหมดแมว' : 'เปิดโหมดแมว'}
+                  className={`absolute right-8 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors text-base leading-none ${
+                    meowMode ? 'text-purple-500 hover:bg-purple-100' : 'text-gray-400 hover:bg-gray-200'
+                  }`}
+                >
+                  🐾
+                </button>
                 <button
                   onClick={submitComment}
                   disabled={!commentText.trim()}
