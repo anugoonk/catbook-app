@@ -13,7 +13,7 @@ import useToast from '../hooks/useToast';
 import { useUser } from '../context/UserContext';
 import { subscribeUnread, clearUnread } from '../services/chatStore';
 import { useNotifications } from '../context/NotificationContext';
-import { mockUsers, mockCats } from '../data/mockData';
+import { getCachedUsers } from '../services/userStore';
 
 const TYPE_META = {
   like:           { bg: 'bg-pink-500',   Icon: PawIcon },
@@ -58,21 +58,6 @@ const NotifDropdownItem = ({ notif, onRead, onClose }) => {
   );
 };
 
-/* All cats pool for search suggestions */
-const buildAllCats = () => {
-  const fromUsers = mockUsers.map(u => ({
-    id: u.activeCat.id,
-    name: u.activeCat.name,
-    avatar: u.activeCat.avatar,
-    breed: u.activeCat.breed || '—',
-    ownerName: u.ownerName,
-  }));
-  const userIds = new Set(fromUsers.map(c => c.id));
-  const fromCats = mockCats
-    .filter(c => !userIds.has(c.id))
-    .map(c => ({ id: c.id, name: c.name, avatar: c.avatar, breed: c.breed || '—', ownerName: c.owner }));
-  return [...fromUsers, ...fromCats];
-};
 
 const TopNavigation = ({ onLogout, onOpenChat }) => {
   const navigate = useNavigate();
@@ -116,7 +101,18 @@ const TopNavigation = ({ onLogout, onOpenChat }) => {
     prevUnreadRef.current = unreadCount;
   }, [unreadCount]);
 
-  const allCats = useMemo(buildAllCats, []);
+  const [allCats, setAllCats] = useState([]);
+  useEffect(() => {
+    getCachedUsers().then(users => {
+      setAllCats(users.filter(u => u.activeCat?.name).map(u => ({
+        id: u.uid,
+        name: u.activeCat.name,
+        avatar: u.activeCat.avatar || '/favicon.svg',
+        breed: u.activeCat.breed || '—',
+        ownerName: u.name || '',
+      })));
+    }).catch(() => {});
+  }, []);
 
   const suggestions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
