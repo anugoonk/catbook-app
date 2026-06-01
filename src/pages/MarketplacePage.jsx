@@ -339,7 +339,7 @@ const MarketplacePage = () => {
           <img
             src="/logo-shop.png"
             alt="Cat Shop"
-            className="h-12 w-auto object-contain"
+            className="h-20 w-auto object-contain"
           />
           <p className="text-[13px] text-[#65676B] mt-1">สินค้าสำหรับน้องแมวโดยเฉพาะ</p>
         </div>
