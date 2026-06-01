@@ -106,9 +106,9 @@ const TopNavigation = ({ onLogout, onOpenChat }) => {
     getCachedUsers().then(users => {
       setAllCats(users.filter(u => u.activeCat?.name).map(u => ({
         id: u.uid,
-        name: u.activeCat.name,
-        avatar: u.activeCat.avatar || '/favicon.svg',
-        breed: u.activeCat.breed || '—',
+        name: u.activeCat?.name,
+        avatar: u.activeCat?.avatar || '/favicon.svg',
+        breed: u.activeCat?.breed || '—',
         ownerName: u.name || '',
       })));
     }).catch(() => {});
@@ -304,7 +304,7 @@ const TopNavigation = ({ onLogout, onOpenChat }) => {
           </button>
 
           <div className="hidden lg:block cursor-pointer" onClick={() => { setViewedCat(null); navigate('/profile'); }}>
-            <img src={currentUser.activeCat.avatar} alt="Profile" className="w-8 h-8 rounded-full border border-gray-300 object-cover" />
+            <img src={currentUser.activeCat?.avatar} alt="Profile" className="w-8 h-8 rounded-full border border-gray-300 object-cover" />
           </div>
 
           {/* Cart button */}

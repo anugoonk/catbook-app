@@ -124,7 +124,7 @@ const CreatePostModal = ({ isOpen, onClose, initialPanel = null }) => {
       setMentionableCats(
         users
           .filter(u => u.uid !== currentUser.uid && u.activeCat?.name)
-          .map(u => ({ id: u.uid, name: u.activeCat.name, avatar: u.activeCat.avatar || '', breed: u.activeCat.breed || '' }))
+          .map(u => ({ id: u.uid, name: u.activeCat?.name, avatar: u.activeCat?.avatar || '', breed: u.activeCat?.breed || '' }))
       );
     }).catch(() => {});
   }, [isOpen, currentUser?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -226,7 +226,7 @@ const CreatePostModal = ({ isOpen, onClose, initialPanel = null }) => {
         if (mentionableCats.find(c => c.name === name)) {
           addNotification({
             type: 'tag',
-            actor: { name: currentUser.activeCat.name, avatar: currentUser.activeCat.avatar },
+            actor: { name: currentUser.activeCat?.name, avatar: currentUser.activeCat?.avatar },
             message: `แท็กคุณในโพสต์: "${rawContent.length > 40 ? rawContent.slice(0, 40) + '…' : rawContent}"`,
           });
         }
@@ -281,12 +281,12 @@ const CreatePostModal = ({ isOpen, onClose, initialPanel = null }) => {
           {/* User info */}
           <div className="flex items-center gap-2 mb-4">
             <img
-              src={currentUser.activeCat.avatar}
+              src={currentUser.activeCat?.avatar}
               alt="avatar"
               className="w-10 h-10 rounded-full object-cover shrink-0"
             />
             <div>
-              <p className="font-bold text-[#050505] text-[15px] leading-tight">{currentUser.activeCat.name}</p>
+              <p className="font-bold text-[#050505] text-[15px] leading-tight">{currentUser.activeCat?.name}</p>
               <div className="flex flex-wrap gap-x-1 text-[13px] text-[#65676B]">
                 {selectedFeeling && <span>รู้สึก {selectedFeeling.emoji} {selectedFeeling.label}</span>}
                 {taggedCats.length > 0 && (
@@ -311,7 +311,7 @@ const CreatePostModal = ({ isOpen, onClose, initialPanel = null }) => {
             value={text}
             onChange={handleTextChange}
             onSelect={e => { cursorRef.current = e.target.selectionStart; }}
-            placeholder={meowMode ? `พิมพ์อะไรก็ได้ แมวจะแปลให้เอง~ 🐾` : `คุณกำลังคิดอะไรอยู่เหมียว, ${currentUser.activeCat.name}? (พิมพ์ @ เพื่อแท็กเพื่อน)`}
+            placeholder={meowMode ? `พิมพ์อะไรก็ได้ แมวจะแปลให้เอง~ 🐾` : `คุณกำลังคิดอะไรอยู่เหมียว, ${currentUser.activeCat?.name}? (พิมพ์ @ เพื่อแท็กเพื่อน)`}
             rows={4}
             className={`w-full resize-none outline-none text-[18px] sm:text-[20px] text-[#050505] leading-relaxed rounded-xl px-1 transition-all
               ${meowMode ? 'placeholder:text-purple-300 ring-2 ring-purple-200 bg-purple-50 p-3' : 'placeholder:text-[#bcc0c4]'}`}

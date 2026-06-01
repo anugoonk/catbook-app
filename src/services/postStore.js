@@ -23,7 +23,7 @@ function formatPost(snap) {
     location: d.location || null,
     images: d.imageUrl ? [d.imageUrl] : [],
     image: d.imageUrl || null,
-    cat: { name: d.authorName, avatar: d.authorAvatar },
+    cat: { name: d.authorName, avatar: d.authorAvatar, uid: d.authorId, id: d.authorId },
     userId: d.authorId,
     time: formatTime(d.createdAt),
     likeCount: d.likeCount || 0,

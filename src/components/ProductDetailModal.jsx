@@ -30,7 +30,7 @@ const ProductDetailModal = ({ product, onClose }) => {
   if (!product) return null;
 
   const cartItem      = items.find(i => i.product.id === product.id);
-  const isOwn         = product.seller?.id === currentUser.activeCat.id;
+  const isOwn         = product.seller?.id === currentUser.activeCat?.id;
   const reservedInCart = cartItem?.qty ?? 0;
   const availableStock = (product.stock ?? 99) - reservedInCart;
   const outOfStock    = availableStock <= 0;

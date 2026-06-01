@@ -337,7 +337,7 @@ const ChatWindow = ({ cat, onClose }) => {
 
       {/* Input */}
       <div className="bg-white border-t border-[#dddfe2] px-2 py-2 flex items-center gap-1 shrink-0">
-        <img src={currentUser.activeCat.avatar} className="w-7 h-7 rounded-full object-cover shrink-0" alt="" />
+        <img src={currentUser.activeCat?.avatar} className="w-7 h-7 rounded-full object-cover shrink-0" alt="" />
 
         <button
           onClick={() => { setShowEmoji(v => !v); setShowSticker(false); }}

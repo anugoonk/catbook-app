@@ -25,10 +25,10 @@ const FriendsPage = () => {
         .map(u => ({
           id: u.uid,
           uid: u.uid,
-          name: u.activeCat.name,
-          avatar: u.activeCat.avatar || '/favicon.svg',
-          breed: u.activeCat.breed || '',
-          bio: u.activeCat.bio || '',
+          name: u.activeCat?.name,
+          avatar: u.activeCat?.avatar || '/favicon.svg',
+          breed: u.activeCat?.breed || '',
+          bio: u.activeCat?.bio || '',
           owner: u.name || '',
         }));
       setAllFriends(list);

@@ -13,8 +13,8 @@ async function getMentionCats() {
     .map(u => ({
       id: u.uid,
       uid: u.uid,
-      name: u.activeCat.name,
-      avatar: u.activeCat.avatar || '',
+      name: u.activeCat?.name,
+      avatar: u.activeCat?.avatar || '',
     }))
   return _mentionCats
 }

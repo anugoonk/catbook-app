@@ -42,8 +42,8 @@ const ProfilePage = () => {
   const profileUid = isOwnProfile ? currentUser.uid : (viewedCat?.uid || viewedCat?.id);
 
   const profileCat = isOwnProfile
-    ? currentUser.activeCat
-    : { name: viewedCat?.name, avatar: viewedCat?.avatar || '/favicon.svg', breed: viewedCat?.breed || '', bio: viewedCat?.bio || '' };
+    ? (currentUser.activeCat || { name: '', avatar: '/favicon.svg', breed: '', bio: '', cover: '' })
+    : { name: viewedCat?.name || '', avatar: viewedCat?.avatar || '/favicon.svg', breed: viewedCat?.breed || '', bio: viewedCat?.bio || '', cover: viewedCat?.cover || '' };
   const profileOwner = isOwnProfile ? currentUser.name : (viewedCat?.owner || '—');
 
   const [activeTab, setActiveTab] = useState('โพสต์');
@@ -98,9 +98,9 @@ const ProfilePage = () => {
 
   const openEditModal = () => {
     setEditForm({
-      name: currentUser.activeCat.name,
-      breed: currentUser.activeCat.breed || '',
-      bio: currentUser.activeCat.bio || '',
+      name: currentUser.activeCat?.name || '',
+      breed: currentUser.activeCat?.breed || '',
+      bio: currentUser.activeCat?.bio || '',
     });
     setIsEditModalOpen(true);
   };

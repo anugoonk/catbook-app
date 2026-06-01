@@ -47,11 +47,11 @@ const SearchPage = () => {
           .map(u => ({
             id: u.uid,
             uid: u.uid,
-            name: u.activeCat.name,
-            avatar: u.activeCat.avatar || '/favicon.svg',
-            breed: u.activeCat.breed || '—',
+            name: u.activeCat?.name,
+            avatar: u.activeCat?.avatar || '/favicon.svg',
+            breed: u.activeCat?.breed || '—',
             ownerName: u.name || '',
-            bio: u.activeCat.bio || '',
+            bio: u.activeCat?.bio || '',
           }))
       );
       setAllPosts(

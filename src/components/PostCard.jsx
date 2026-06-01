@@ -115,7 +115,7 @@ const PostCard = ({ post, onDeleted }) => {
       setMentionableCats(
         users
           .filter(u => u.uid !== currentUser.uid && u.activeCat?.name)
-          .map(u => ({ id: u.uid, name: u.activeCat.name, avatar: u.activeCat.avatar || '', breed: u.activeCat.breed || '' }))
+          .map(u => ({ id: u.uid, name: u.activeCat?.name, avatar: u.activeCat?.avatar || '', breed: u.activeCat?.breed || '' }))
       );
     }).catch(() => {});
   }, [mentionQuery === null, currentUser?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -265,7 +265,7 @@ const PostCard = ({ post, onDeleted }) => {
       if (mentionableCats.find(c => c.name === name)) {
         addNotification({
           type: 'tag',
-          actor: { name: currentUser.activeCat.name, avatar: currentUser.activeCat.avatar },
+          actor: { name: currentUser.activeCat?.name, avatar: currentUser.activeCat?.avatar },
           message: `แท็กคุณในคอมเมนต์: "${raw.length > 40 ? raw.slice(0, 40) + '…' : raw}"`,
         });
       }
@@ -518,7 +518,7 @@ const PostCard = ({ post, onDeleted }) => {
             <div className="flex gap-2 items-center">
               <div className="flex-1 relative">
                 <img
-                  src={currentUser.activeCat.avatar}
+                  src={currentUser.activeCat?.avatar}
                   alt="Me"
                   className="absolute left-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full object-cover border border-gray-200 z-10 shrink-0"
                 />

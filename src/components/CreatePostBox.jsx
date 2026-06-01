@@ -20,7 +20,7 @@ const CreatePostBox = () => {
       <div className="bg-white rounded-lg shadow-sm border border-[#dddfe2] p-3 mb-3">
         <div className="flex gap-2 mb-3">
           <img
-            src={currentUser.activeCat.avatar}
+            src={currentUser.activeCat?.avatar}
             alt="Profile"
             className="w-10 h-10 rounded-full object-cover shrink-0"
           />

@@ -288,8 +288,8 @@ const MarketplacePage = () => {
       sellerUid: currentUser.uid,
       seller: {
         id: currentUser.uid, uid: currentUser.uid,
-        name: currentUser.activeCat.name,
-        avatar: currentUser.activeCat.avatar || '',
+        name: currentUser.activeCat?.name,
+        avatar: currentUser.activeCat?.avatar || '',
       },
     };
     await createListing(listing);

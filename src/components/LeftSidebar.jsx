@@ -22,7 +22,7 @@ const LeftSidebar = () => {
   const isSeller = currentUser?.role === 'SELLER' || currentUser?.isAdmin;
 
   const menuItems = [
-    { path: '/profile', icon: Cat, label: currentUser.activeCat.name, img: currentUser.activeCat.avatar },
+    { path: '/profile', icon: Cat, label: currentUser.activeCat?.name, img: currentUser.activeCat?.avatar },
     ...STATIC_MENU,
     ...(isSeller ? [{ path: '/seller', icon: ShoppingBag, label: 'ร้านค้าของฉัน' }] : []),
   ];
