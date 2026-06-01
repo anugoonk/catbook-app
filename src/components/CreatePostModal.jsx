@@ -90,7 +90,7 @@ const CreatePostModal = ({ isOpen, onClose, initialPanel = null }) => {
   const [taggedCats, setTaggedCats] = useState([]);
   const [tagSearch, setTagSearch] = useState('');
   const [selectedFeeling, setSelectedFeeling] = useState(null);
-  const [meowMode, setMeowMode] = useState(false);
+  const [meowMode, setMeowMode] = useState(true);
   const [posting, setPosting] = useState(false);
   const [mentionQuery, setMentionQuery] = useState(null);
   const [mentionStart, setMentionStart] = useState(0);
