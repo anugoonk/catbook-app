@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState, Component } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { UserContext } from './context/UserContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -33,6 +33,31 @@ const OrderDetailPage = lazy(() => import('./pages/OrderDetailPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const SellerDashboardPage = lazy(() => import('./pages/SellerDashboardPage'));
 
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="min-h-screen bg-[#f0f2f5] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 max-w-md w-full text-center">
+            <p className="text-4xl mb-3">🐱</p>
+            <p className="font-bold text-gray-800 text-lg mb-1">เกิดข้อผิดพลาด</p>
+            <p className="text-gray-500 text-sm mb-4">{this.state.error?.message || 'ไม่ทราบสาเหตุ'}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-[#4267B2] text-white font-bold px-6 py-2.5 rounded-lg hover:bg-[#3b5998] transition-colors"
+            >
+              โหลดหน้าใหม่
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const RouteFallback = () => (
   <div className="w-full min-h-[240px] flex items-center justify-center">
     <div className="bg-white border border-gray-200 rounded-2xl px-6 py-5 shadow-sm text-center">
@@ -46,9 +71,11 @@ const RouteFallback = () => (
 );
 
 const lazyElement = (Component) => (
-  <Suspense fallback={<RouteFallback />}>
-    <Component />
-  </Suspense>
+  <ErrorBoundary>
+    <Suspense fallback={<RouteFallback />}>
+      <Component />
+    </Suspense>
+  </ErrorBoundary>
 );
 
 const MarketingRouteTracker = () => {
@@ -132,6 +159,7 @@ export default function App() {
   }
 
   return (
+    <ErrorBoundary>
     <UserContext.Provider value={{ currentUser, viewedCat, setViewedCat, updateProfile }}>
       <NotificationProvider>
         <CartProvider>
@@ -194,5 +222,6 @@ export default function App() {
       </CartProvider>
       </NotificationProvider>
     </UserContext.Provider>
+    </ErrorBoundary>
   );
 }
