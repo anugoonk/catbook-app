@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Image as ImageIcon, Heart, Cat, Smile, Edit3, UserPlus, UserCheck, MessageCircle, ArrowLeft, X } from 'lucide-react';
+import { Image as ImageIcon, Heart, Cat, Smile, Edit3, UserPlus, UserCheck, MessageCircle, ArrowLeft, X, Upload } from 'lucide-react';
 import CreatePostBox from '../components/CreatePostBox';
 import PostCard from '../components/PostCard';
 import Toast from '../components/Toast';
@@ -10,6 +10,7 @@ import { updateUserProfile, deleteUserDoc, followUser, unfollowUser, getFollowin
 import { subscribePostsByUser } from '../services/postStore';
 import { deleteUser } from 'firebase/auth';
 import { auth } from '../firebase';
+import { COVERS } from '../components/CatAvatarPicker';
 
 function compressImage(file, maxW, maxH, quality = 0.75) {
   return new Promise((resolve, reject) => {
@@ -55,6 +56,7 @@ const ProfilePage = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [showCoverPicker, setShowCoverPicker] = useState(false);
   const coverRef = useRef(null);
   const avatarRef = useRef(null);
 
@@ -144,6 +146,18 @@ const ProfilePage = () => {
     }
   };
 
+  const selectCover = async (css) => {
+    setCoverImg(css);
+    setShowCoverPicker(false);
+    try {
+      await updateUserProfile(currentUser.uid, { 'activeCat.cover': css });
+      updateProfile({ cover: css });
+      showToast('อัปเดตหน้าปกสำเร็จ! 🐾');
+    } catch {
+      showToast('บันทึกไม่สำเร็จ');
+    }
+  };
+
   const toggleFollow = async () => {
     const prev = isFollowing;
     setIsFollowing(!prev);
@@ -165,8 +179,9 @@ const ProfilePage = () => {
     navigate(`/messages?cat=${encodeURIComponent(profileUid)}`);
   };
 
-  const displayCover = isOwnProfile ? (coverImg || '/favicon.svg') : (profileCat.cover || profileCat.avatar || '/favicon.svg');
+  const displayCover = isOwnProfile ? (coverImg || '') : (profileCat.cover || '');
   const displayAvatar = isOwnProfile ? (avatarImg || '/favicon.svg') : (profileCat.avatar || '/favicon.svg');
+  const isGradient = (v) => v?.startsWith('linear-gradient') || v?.startsWith('radial-gradient');
 
   return (
     <div className="w-full">
@@ -184,14 +199,20 @@ const ProfilePage = () => {
       <div className="bg-white rounded-b-xl shadow-sm mb-4 relative pb-4">
         {/* Cover */}
         <div className="h-64 w-full bg-gray-200 rounded-b-xl overflow-hidden relative">
-          <img src={displayCover} className="w-full h-full object-cover" alt="cover" />
+          {isGradient(displayCover) ? (
+            <div className="w-full h-full" style={{ background: displayCover }} />
+          ) : displayCover ? (
+            <img src={displayCover} className="w-full h-full object-cover" alt="cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-[#4267B2] to-[#764ba2]" />
+          )}
           {isOwnProfile && (
             <>
               <button
-                onClick={() => coverRef.current?.click()}
-                className="absolute bottom-4 right-4 bg-white/80 hover:bg-white text-gray-800 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors"
+                onClick={() => setShowCoverPicker(true)}
+                className="absolute bottom-4 right-4 bg-white/90 hover:bg-white text-gray-800 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors shadow-sm"
               >
-                <ImageIcon className="w-4 h-4" /> เปลี่ยนรูปหน้าปก
+                <ImageIcon className="w-4 h-4" /> เปลี่ยนหน้าปก
               </button>
               <input ref={coverRef} type="file" accept="image/*" className="hidden" onChange={e => handleFileChange(e, 'cover')} />
             </>
@@ -378,6 +399,53 @@ const ProfilePage = () => {
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
           <h2 className="font-bold text-xl mb-2 text-gray-800">รูปภาพ</h2>
           <p className="text-gray-400 text-sm">ยังไม่มีรูปภาพ</p>
+        </div>
+      )}
+
+      {/* Cover Picker Modal */}
+      {showCoverPicker && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
+          onClick={e => { if (e.target === e.currentTarget) setShowCoverPicker(false); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-bold text-gray-800">เลือกหน้าปก</h2>
+              <button onClick={() => setShowCoverPicker(false)} className="p-2 rounded-full hover:bg-gray-100 text-gray-400 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              {/* Gradient swatches */}
+              <p className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wide">เลือกสีพื้นหลัง</p>
+              <div className="grid grid-cols-5 gap-2 mb-4">
+                {COVERS.map(cover => {
+                  const isActive = coverImg === cover.css;
+                  return (
+                    <button
+                      key={cover.id}
+                      onClick={() => selectCover(cover.css)}
+                      title={cover.name}
+                      className={`h-12 rounded-xl transition-all hover:scale-105 active:scale-95 ${isActive ? 'ring-3 ring-[#4267B2] ring-offset-2 scale-105' : ''}`}
+                      style={{ background: cover.css }}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Upload custom image */}
+              <div className="border-t border-gray-100 pt-3">
+                <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">หรืออัพโหลดรูปเอง</p>
+                <button
+                  onClick={() => { setShowCoverPicker(false); coverRef.current?.click(); }}
+                  className="w-full flex items-center justify-center gap-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 font-semibold text-sm py-2.5 rounded-xl transition-colors"
+                >
+                  <Upload className="w-4 h-4" /> เลือกไฟล์รูปภาพ
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
