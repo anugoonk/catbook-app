@@ -1,14 +1,32 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
-import { mockUsers, mockCats } from '../data/mockData';
+import { getCachedUsers } from '../services/userStore';
 
-const fullCats = mockUsers.map(u => u.activeCat);
-const extraCats = mockCats.filter(c => !mockUsers.some(u => u.activeCat.id === c.id));
-const allCats = [...fullCats, ...extraCats];
+// module-level cache so all MentionText instances share one parsed list
+let _mentionCats = null
+async function getMentionCats() {
+  if (_mentionCats) return _mentionCats
+  const users = await getCachedUsers()
+  _mentionCats = users
+    .filter(u => u.activeCat?.name)
+    .map(u => ({
+      id: u.uid,
+      uid: u.uid,
+      name: u.activeCat.name,
+      avatar: u.activeCat.avatar || '',
+    }))
+  return _mentionCats
+}
 
 const MentionText = ({ text, className = '' }) => {
   const { setViewedCat } = useUser();
   const navigate = useNavigate();
+  const [allCats, setAllCats] = useState([]);
+
+  useEffect(() => {
+    getMentionCats().then(setAllCats).catch(() => {});
+  }, []);
 
   if (!text) return null;
 
