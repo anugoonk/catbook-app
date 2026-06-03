@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Send, X, Smile, CornerUpLeft } from 'lucide-react';
+import { Search, Send, X, Smile, ArrowLeft } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { getAllUsers } from '../services/userStore';
 import { subscribeMessages, sendMessage, clearUnread, subscribeUnread } from '../services/chatStore';
@@ -101,8 +101,8 @@ const MessagesPage = () => {
   return (
     <div className="flex h-[calc(100vh-56px)] bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
 
-      {/* Left: conversation list */}
-      <div className="w-[320px] shrink-0 border-r border-gray-200 flex flex-col">
+      {/* Left: conversation list — hidden on mobile when chat is open */}
+      <div className={`${selected ? 'hidden lg:flex' : 'flex'} flex-col w-full lg:w-[320px] lg:shrink-0 border-r border-gray-200`}>
         <div className="p-4 border-b border-gray-100">
           <h2 className="font-bold text-xl text-[#050505] mb-3">แชท</h2>
           <div className="relative">
@@ -156,17 +156,23 @@ const MessagesPage = () => {
         </div>
       </div>
 
-      {/* Right: chat area */}
+      {/* Right: chat area — hidden on mobile when no chat selected */}
       {!selected ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center text-gray-400 gap-3">
+        <div className="hidden lg:flex flex-1 flex-col items-center justify-center text-center text-gray-400 gap-3">
           <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-3xl">💬</div>
           <p className="font-semibold text-gray-600">ข้อความของคุณ</p>
           <p className="text-sm">เลือกการสนทนาทางซ้ายเพื่อเริ่มแชท</p>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex flex-1 flex-col min-w-0">
           {/* Chat header */}
           <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-3">
+            <button
+              onClick={() => setSelected(null)}
+              className="lg:hidden p-1.5 -ml-1 rounded-full hover:bg-gray-100 text-gray-500 transition-colors shrink-0"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
             <img src={selected.avatar || '/favicon.svg'} className="w-10 h-10 rounded-full object-cover border border-gray-200" alt={selected.name} />
             <div className="flex-1">
               <p className="font-bold text-[15px] text-[#050505]">{selected.name}</p>
