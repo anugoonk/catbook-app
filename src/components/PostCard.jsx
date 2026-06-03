@@ -227,9 +227,23 @@ const PostCard = ({ post, onDeleted }) => {
 
   useEffect(() => {
     if (!showComments) return;
-    const unsub = subscribeComments(post.id, currentUser?.uid, (data) => {
-      setComments(data);
-      setCommentCount(data.length);
+    const unsub = subscribeComments(post.id, currentUser?.uid, async (data) => {
+      const users = await getCachedUsers().catch(() => []);
+      const enriched = data.map(c => {
+        if (c.isOwn) return {
+          ...c,
+          avatar: currentUser?.activeCat?.avatar || c.avatar,
+          name: currentUser?.activeCat?.name || c.name,
+        };
+        const author = users.find(u => u.uid === c.authorId);
+        return author?.activeCat ? {
+          ...c,
+          avatar: author.activeCat.avatar || c.avatar,
+          name: author.activeCat.name || c.name,
+        } : c;
+      });
+      setComments(enriched);
+      setCommentCount(enriched.length);
     });
     return unsub;
   }, [showComments, post.id, currentUser?.uid]);

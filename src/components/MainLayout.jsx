@@ -24,7 +24,9 @@ const MainLayout = ({ onLogout, onOpenChat, unreadMessages = 0, unreadSenders = 
 
       <div className="pt-[56px]">
         {isFullwidth ? (
-          <Outlet />
+          <div className={pathname !== '/messages' ? 'pb-16 lg:pb-0' : ''}>
+            <Outlet />
+          </div>
         ) : (
           <div className="max-w-[1500px] mx-auto flex">
             <LeftSidebar />

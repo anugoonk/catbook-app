@@ -89,6 +89,7 @@ export function subscribeComments(postId, uid, onUpdate) {
         text: data.text,
         name: data.authorName,
         avatar: data.authorAvatar,
+        authorId: data.authorId,
         time: formatTime(data.createdAt),
         meow: data.meow || false,
         isOwn: data.authorId === uid,
