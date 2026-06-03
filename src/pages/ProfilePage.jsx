@@ -6,7 +6,7 @@ import PostCard from '../components/PostCard';
 import Toast from '../components/Toast';
 import useToast from '../hooks/useToast';
 import { useUser } from '../context/UserContext';
-import { updateUserProfile, deleteUserDoc, followUser, unfollowUser, getFollowing } from '../services/userStore';
+import { updateUserProfile, deleteUserDoc, followUser, unfollowUser, getFollowing, clearUsersCache } from '../services/userStore';
 import { subscribePostsByUser, updateAuthorInPosts } from '../services/postStore';
 import { deleteUser } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -114,8 +114,9 @@ const ProfilePage = () => {
         'activeCat.breed': editForm.breed.trim(),
         'activeCat.bio': editForm.bio.trim(),
       });
+      clearUsersCache();
       updateProfile({ name: trimName, breed: editForm.breed.trim(), bio: editForm.bio.trim() });
-      await updateAuthorInPosts(currentUser.uid, { name: trimName });
+      updateAuthorInPosts(currentUser.uid, { name: trimName }).catch(console.error);
       setIsEditModalOpen(false);
       showToast('อัปเดตโปรไฟล์สำเร็จ! 🐾');
     } catch {
@@ -136,8 +137,9 @@ const ProfilePage = () => {
       if (type === 'avatar') {
         setAvatarImg(b64);
         await updateUserProfile(currentUser.uid, { 'activeCat.avatar': b64 });
+        clearUsersCache();
         updateProfile({ avatar: b64 });
-        await updateAuthorInPosts(currentUser.uid, { avatar: b64 });
+        updateAuthorInPosts(currentUser.uid, { avatar: b64 }).catch(console.error);
       } else {
         setCoverImg(b64);
         await updateUserProfile(currentUser.uid, { 'activeCat.cover': b64 });
