@@ -99,7 +99,7 @@ const MessagesPage = () => {
   const myAvatar = currentUser?.activeCat?.avatar || currentUser?.avatar || '/favicon.svg';
 
   return (
-    <div className="flex h-[calc(100vh-56px)] bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+    <div className="flex h-[calc(100vh-120px)] lg:h-[calc(100vh-56px)] bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
 
       {/* Left: conversation list — hidden on mobile when chat is open */}
       <div className={`${selected ? 'hidden lg:flex' : 'flex'} flex-col w-full lg:w-[320px] lg:shrink-0 border-r border-gray-200`}>
