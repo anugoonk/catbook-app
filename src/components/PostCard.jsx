@@ -130,6 +130,9 @@ const PostCard = ({ post, onDeleted }) => {
   const isAdmin = !isGuest && currentUser.role === 'ADMIN';
   const canDelete = isOwnPost || isAdmin;
 
+  const liveAvatar = isOwnPost ? (currentUser.activeCat?.avatar || post.cat?.avatar) : post.cat?.avatar;
+  const liveName   = isOwnPost ? (currentUser.activeCat?.name   || post.cat?.name)   : post.cat?.name;
+
   const handleSaveEdit = async () => {
     const trimmed = editContent.trim();
     if (!trimmed || trimmed === postContent) { setIsEditing(false); return; }
@@ -321,10 +324,10 @@ const PostCard = ({ post, onDeleted }) => {
         {/* Header */}
         <div className="px-4 pt-3 pb-2 flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0 cursor-pointer" onClick={() => post.cat && goToProfile(post.cat)}>
-            <img src={post.cat?.avatar || '/favicon.svg'} alt="Author" className="w-10 h-10 rounded-full object-cover shrink-0 hover:opacity-90 transition-opacity" />
+            <img src={liveAvatar || '/favicon.svg'} alt="Author" className="w-10 h-10 rounded-full object-cover shrink-0 hover:opacity-90 transition-opacity" />
             <div className="min-w-0">
               <h4 className="font-bold text-[#050505] text-[15px] leading-snug hover:underline">
-                {post.cat?.name || '—'}
+                {liveName || '—'}
                 {post.feeling && <span className="text-[#65676B] font-normal"> — รู้สึก {post.feeling}</span>}
                 {post.location && <span className="text-[#65676B] font-normal hidden sm:inline"> ที่ {post.location}</span>}
               </h4>

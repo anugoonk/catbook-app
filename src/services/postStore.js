@@ -1,7 +1,7 @@
 import {
   collection, doc, addDoc, updateDoc, deleteDoc,
   onSnapshot, serverTimestamp, increment, setDoc,
-  getDoc, query, orderBy, where,
+  getDoc, query, orderBy, where, getDocs, writeBatch,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 
@@ -104,6 +104,18 @@ export function subscribePostsByUser(uid, onUpdate) {
     orderBy('createdAt', 'desc')
   )
   return onSnapshot(q, snap => onUpdate(snap.docs.map(formatPost)), onErr)
+}
+
+export async function updateAuthorInPosts(uid, { avatar, name }) {
+  const q = query(collection(db, 'posts'), where('authorId', '==', uid))
+  const snap = await getDocs(q)
+  if (snap.empty) return
+  const batch = writeBatch(db)
+  const fields = {}
+  if (avatar !== undefined) fields.authorAvatar = avatar
+  if (name !== undefined) fields.authorName = name
+  snap.docs.forEach(d => batch.update(d.ref, fields))
+  await batch.commit()
 }
 
 export async function addComment(postId, { text, meow, currentUser }) {
