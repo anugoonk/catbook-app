@@ -1045,13 +1045,15 @@ const AdminDashboardPage = () => {
                     <Th>สมาชิก / อีเมล</Th>
                     <Th center>Role ปัจจุบัน</Th>
                     <Th center>เปลี่ยนเป็น</Th>
+                    <Th center>จัดการ</Th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredUsers.map(user => {
-                    const cat   = user.activeCat || {};
-                    const role  = user.role || 'USER';
-                    const self  = isSelf(user);
+                    const cat      = user.activeCat || {};
+                    const role     = user.role || 'USER';
+                    const self     = isSelf(user);
+                    const isBanned = user.status === 'banned';
                     const roleCfg = {
                       ADMIN:  { label: 'Admin',  cls: 'bg-[#4267B2]/10 text-[#4267B2]',     icon: <Crown className="w-3 h-3" /> },
                       SELLER: { label: 'ผู้ขาย', cls: 'bg-amber-100 text-amber-700',         icon: null },
@@ -1060,16 +1062,16 @@ const AdminDashboardPage = () => {
                     const nextRoles = ['USER', 'SELLER', 'ADMIN'].filter(r => r !== role);
                     const nextRoleLabel = { USER: 'สมาชิก', SELLER: 'ผู้ขาย', ADMIN: 'Admin' };
                     return (
-                      <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={user.id} className={`transition-colors ${isBanned ? 'bg-orange-50' : 'hover:bg-gray-50'}`}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
                             <img
                               src={cat.avatar || user.avatar || '/favicon.svg'}
-                              className="w-9 h-9 rounded-full object-cover shrink-0 border border-gray-200"
+                              className={`w-9 h-9 rounded-full object-cover shrink-0 border border-gray-200 ${isBanned ? 'opacity-40 grayscale' : ''}`}
                               alt=""
                             />
                             <div className="min-w-0">
-                              <p className="font-semibold text-[13px] leading-tight truncate text-[#050505]">
+                              <p className={`font-semibold text-[13px] leading-tight truncate ${isBanned ? 'text-gray-400 line-through' : 'text-[#050505]'}`}>
                                 {cat.name || '—'} {self && <span className="text-[10px] text-[#4267B2] font-semibold">(คุณ)</span>}
                               </p>
                               <p className="text-[11px] text-gray-400 truncate">{user.name || '—'}</p>
@@ -1103,6 +1105,37 @@ const AdminDashboardPage = () => {
                               ))}
                             </div>
                           )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-center gap-1.5">
+                            {self ? (
+                              <span className="text-[11px] text-gray-300">—</span>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => toggleBan(user.id)}
+                                  title={isBanned ? 'ปลดระงับ' : 'ระงับบัญชี'}
+                                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition-colors border
+                                    ${isBanned
+                                      ? 'bg-green-50 text-green-600 hover:bg-green-100 border-green-200'
+                                      : 'bg-orange-50 text-orange-500 hover:bg-orange-100 border-orange-200'}`}
+                                >
+                                  {isBanned ? '✓ ปลดบล็อก' : '🚫 บล็อก'}
+                                </button>
+                                {isDeleting('user', user.id) ? (
+                                  <ConfirmPair onConfirm={() => deleteUser(user.id)} onCancel={() => setConfirmDelete(null)} />
+                                ) : (
+                                  <button
+                                    onClick={() => setConfirmDelete({ type: 'user', id: user.id })}
+                                    title="ลบสมาชิก"
+                                    className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-red-50 text-red-500 hover:bg-red-100 border border-red-200 transition-colors"
+                                  >
+                                    🗑 ลบ
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
