@@ -43,13 +43,12 @@ export async function getAllUsers() {
   return snap.docs.map(d => ({ id: d.id, uid: d.id, ...d.data() }))
 }
 
-let _usersCache = null
-export async function getCachedUsers() {
-  if (_usersCache) return _usersCache
-  _usersCache = await getAllUsers()
-  return _usersCache
+let _fetchPromise = null
+export function getCachedUsers() {
+  if (!_fetchPromise) _fetchPromise = getAllUsers()
+  return _fetchPromise
 }
-export function clearUsersCache() { _usersCache = null }
+export function clearUsersCache() { _fetchPromise = null }
 
 export async function setUserRole(uid, role) {
   await updateDoc(doc(db, usersCol, uid), {

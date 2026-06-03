@@ -227,25 +227,32 @@ const PostCard = ({ post, onDeleted }) => {
 
   useEffect(() => {
     if (!showComments) return;
-    const unsub = subscribeComments(post.id, currentUser?.uid, async (data) => {
-      const users = await getCachedUsers().catch(() => []);
-      const enriched = data.map(c => {
-        if (c.isOwn) return {
-          ...c,
-          avatar: currentUser?.activeCat?.avatar || c.avatar,
-          name: currentUser?.activeCat?.name || c.name,
-        };
-        const author = users.find(u => u.uid === c.authorId);
-        return author?.activeCat ? {
-          ...c,
-          avatar: author.activeCat.avatar || c.avatar,
-          name: author.activeCat.name || c.name,
-        } : c;
+    let cancelled = false;
+    let unsubFn = null;
+
+    getCachedUsers().catch(() => []).then(users => {
+      if (cancelled) return;
+      unsubFn = subscribeComments(post.id, currentUser?.uid, (data) => {
+        if (cancelled) return;
+        const enriched = data.map(c => {
+          if (c.isOwn) return {
+            ...c,
+            avatar: currentUser?.activeCat?.avatar || c.avatar,
+            name: currentUser?.activeCat?.name || c.name,
+          };
+          const author = users.find(u => u.uid === c.authorId);
+          return author?.activeCat ? {
+            ...c,
+            avatar: author.activeCat.avatar || c.avatar,
+            name: author.activeCat.name || c.name,
+          } : c;
+        });
+        setComments(enriched);
+        setCommentCount(enriched.length);
       });
-      setComments(enriched);
-      setCommentCount(enriched.length);
     });
-    return unsub;
+
+    return () => { cancelled = true; unsubFn?.(); };
   }, [showComments, post.id, currentUser?.uid]);
 
   /* ── Comment handlers ── */

@@ -40,7 +40,7 @@ const MainLayout = ({ onLogout, onOpenChat, unreadMessages = 0, unreadSenders = 
         )}
       </div>
 
-      <BottomNav />
+      <BottomNav unreadMessages={unreadMessages} />
       <CartDrawer />
       {isCheckoutOpen && <CheckoutModal onClose={() => setIsCheckoutOpen(false)} />}
     </div>

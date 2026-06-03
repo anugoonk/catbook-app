@@ -1,16 +1,16 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Users, Store, Cat, AlertTriangle } from 'lucide-react';
+import { Home, Users, Store, Cat, AlertTriangle, MessageCircle } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 
 const navItems = [
   { path: '/',            icon: Home,          label: 'หน้าหลัก' },
   { path: '/friends',     icon: Users,         label: 'เพื่อน' },
-  { path: '/lostcats',    icon: AlertTriangle, label: 'แมวหาย' },
+  { path: '/messages',    icon: MessageCircle, label: 'แชท' },
   { path: '/marketplace', icon: Store,         label: 'ตลาด' },
   { path: '/profile',     icon: Cat,           label: 'โปรไฟล์' },
 ];
 
-const BottomNav = () => {
+const BottomNav = ({ unreadMessages = 0 }) => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { currentUser, setViewedCat } = useUser();
@@ -36,9 +36,14 @@ const BottomNav = () => {
             {active && (
               <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#4267B2] rounded-full" />
             )}
-            <Icon
-              className={`w-6 h-6 transition-transform ${active ? 'text-[#4267B2] scale-110' : 'text-gray-500'}`}
-            />
+            <div className="relative">
+              <Icon className={`w-6 h-6 transition-transform ${active ? 'text-[#4267B2] scale-110' : 'text-gray-500'}`} />
+              {path === '/messages' && unreadMessages > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                  {unreadMessages > 99 ? '99+' : unreadMessages}
+                </span>
+              )}
+            </div>
             <span className={`text-[10px] font-medium ${active ? 'text-[#4267B2] font-bold' : 'text-gray-500'}`}>
               {label}
             </span>
