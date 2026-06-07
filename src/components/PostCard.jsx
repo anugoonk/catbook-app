@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Share2, MoreHorizontal, Globe, SendHorizontal, PawPrint, Link2, X, Repeat2, Trash2, Pencil } from 'lucide-react';
+import { MessageCircle, Share2, MoreHorizontal, Globe, SendHorizontal, PawPrint, Link2, X, Repeat2, Trash2, Pencil, Bookmark } from 'lucide-react';
 import PawIcon from './PawIcon';
 import { useUser } from '../context/UserContext';
 import { useNotifications } from '../context/NotificationContext';
 import { translateToMeow } from '../utils/meowTranslator';
 import { getCachedUsers } from '../services/userStore';
 import MentionText from './MentionText';
-import { deletePost, updatePost, reactToPost, removeReaction, subscribeComments, addComment } from '../services/postStore';
+import { deletePost, updatePost, reactToPost, removeReaction, subscribeComments, addComment, savePost, unsavePost } from '../services/postStore';
 
 const REACTIONS = [
   { id: 'paw',   emoji: '🐾', label: 'ส่งอุ้งเท้า', color: 'text-[#4267B2]' },
@@ -80,7 +80,7 @@ const ImageGrid = ({ images }) => {
 };
 
 const PostCard = ({ post, onDeleted }) => {
-  const { currentUser, setViewedCat } = useUser();
+  const { currentUser, setViewedCat, savedPostIds } = useUser();
   const { addNotification } = useNotifications();
   const navigate = useNavigate();
 
@@ -108,6 +108,7 @@ const PostCard = ({ post, onDeleted }) => {
   const inputRef = useRef(null);
   const cursorRef = useRef(0);
 
+  const [saving, setSaving] = useState(false);
   const [mentionableCats, setMentionableCats] = useState([]);
   useEffect(() => {
     if (mentionQuery === null || !currentUser) return;
@@ -129,6 +130,7 @@ const PostCard = ({ post, onDeleted }) => {
   const isOwnPost = !isGuest && post.userId === currentUser.uid;
   const isAdmin = !isGuest && currentUser.role === 'ADMIN';
   const canDelete = isOwnPost || isAdmin;
+  const isSaved = !isGuest && (savedPostIds ?? []).includes(post.id);
 
   const [resolvedCat, setResolvedCat] = useState({
     avatar: post.cat?.avatar || '/favicon.svg',
@@ -320,6 +322,22 @@ const PostCard = ({ post, onDeleted }) => {
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') { setMentionQuery(null); return; }
     if (e.key === 'Enter' && !e.shiftKey && mentionQuery === null) { e.preventDefault(); submitComment(); }
+  };
+
+  /* ── Save handler ── */
+  const handleSave = async () => {
+    if (requireLogin()) return;
+    if (saving) return;
+    setSaving(true);
+    try {
+      if (isSaved) {
+        await unsavePost(currentUser.uid, post.id);
+      } else {
+        await savePost(currentUser.uid, post.id);
+        showToast('บันทึกโพสต์แล้ว 🔖');
+      }
+    } catch { /* ignore */ }
+    setSaving(false);
   };
 
   /* ── Share handlers ── */
@@ -530,6 +548,19 @@ const PostCard = ({ post, onDeleted }) => {
           >
             <Share2 className="w-5 h-5 shrink-0" />
             <span>แชร์</span>
+          </button>
+
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            title={isSaved ? 'ยกเลิกบันทึก' : 'บันทึกโพสต์'}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg font-semibold text-[15px] transition-colors
+              ${isSaved
+                ? 'text-[#4267B2] hover:bg-blue-50'
+                : 'text-[#65676B] hover:bg-blue-50 hover:text-[#4267B2]'}`}
+          >
+            <Bookmark className={`w-5 h-5 shrink-0 ${isSaved ? 'fill-[#4267B2]' : ''}`} />
+            <span className="hidden sm:inline">{isSaved ? 'บันทึกแล้ว' : 'บันทึก'}</span>
           </button>
         </div>
 

@@ -14,6 +14,7 @@ const TermsPage   = lazy(() => import('./pages/TermsPage'));
 import { onAuthChange, firebaseSignOut } from './services/authFirebase';
 import { getOrCreateUser } from './services/userStore';
 import { subscribeUnread, clearUnread } from './services/chatStore';
+import { subscribeSavedPostIds } from './services/postStore';
 import { captureUtmContext, trackMarketingEvent } from './services/marketingTracking';
 import { defaultSeoMeta, setSeoMeta } from './utils/seo';
 
@@ -98,6 +99,7 @@ export default function App() {
   const [viewedCat, setViewedCat] = useState(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadSenders, setUnreadSenders] = useState([]);
+  const [savedPostIds, setSavedPostIds] = useState([]);
   const isLoggedIn = currentUser !== null;
 
   useEffect(() => {
@@ -124,6 +126,11 @@ export default function App() {
       setUnreadSenders(senders);
     });
     return unsub;
+  }, [currentUser?.uid]);
+
+  useEffect(() => {
+    if (!currentUser?.uid) { setSavedPostIds([]); return; }
+    return subscribeSavedPostIds(currentUser.uid, setSavedPostIds);
   }, [currentUser?.uid]);
 
   const handleOpenChat = (cat) => {
@@ -160,7 +167,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-    <UserContext.Provider value={{ currentUser, viewedCat, setViewedCat, updateProfile }}>
+    <UserContext.Provider value={{ currentUser, viewedCat, setViewedCat, updateProfile, savedPostIds }}>
       <NotificationProvider>
         <CartProvider>
         <OrderProvider>

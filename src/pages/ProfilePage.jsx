@@ -7,7 +7,7 @@ import Toast from '../components/Toast';
 import useToast from '../hooks/useToast';
 import { useUser } from '../context/UserContext';
 import { updateUserProfile, deleteUserDoc, followUser, unfollowUser, getFollowing, clearUsersCache } from '../services/userStore';
-import { subscribePostsByUser, updateAuthorInPosts } from '../services/postStore';
+import { subscribePostsByUser, updateAuthorInPosts, getPostById } from '../services/postStore';
 import { deleteUser } from 'firebase/auth';
 import { auth } from '../firebase';
 import { COVERS } from '../components/CatAvatarPicker';
@@ -32,10 +32,11 @@ function compressImage(file, maxW, maxH, quality = 0.75) {
   });
 }
 
-const TABS = ['โพสต์', 'เกี่ยวกับ', 'เพื่อนเหมียว', 'รูปภาพ'];
+const TABS_PUBLIC = ['โพสต์', 'เกี่ยวกับ', 'เพื่อนเหมียว', 'รูปภาพ'];
+const TABS_OWN    = ['โพสต์', 'เกี่ยวกับ', 'เพื่อนเหมียว', 'รูปภาพ', 'บันทึก'];
 
 const ProfilePage = () => {
-  const { currentUser, viewedCat, setViewedCat, updateProfile } = useUser();
+  const { currentUser, viewedCat, setViewedCat, updateProfile, savedPostIds } = useUser();
   const navigate = useNavigate();
 
   const isOwnProfile = !viewedCat || viewedCat.uid === currentUser.uid || viewedCat.id === currentUser.uid;
@@ -57,6 +58,8 @@ const ProfilePage = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [showCoverPicker, setShowCoverPicker] = useState(false);
+  const [savedPosts, setSavedPosts] = useState([]);
+  const [savedLoading, setSavedLoading] = useState(false);
   const coverRef = useRef(null);
   const avatarRef = useRef(null);
 
@@ -78,6 +81,17 @@ const ProfilePage = () => {
     if (isOwnProfile || !profileUid) return;
     getFollowing(currentUser.uid).then(set => setIsFollowing(set.has(profileUid))).catch(() => {});
   }, [isOwnProfile, profileUid, currentUser.uid]);
+
+  useEffect(() => {
+    if (activeTab !== 'บันทึก' || !isOwnProfile) return;
+    setSavedLoading(true);
+    Promise.all((savedPostIds ?? []).map(id => getPostById(id)))
+      .then(results => {
+        setSavedPosts(results.filter(Boolean));
+        setSavedLoading(false);
+      })
+      .catch(() => setSavedLoading(false));
+  }, [activeTab, savedPostIds, isOwnProfile]);
 
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
@@ -284,7 +298,7 @@ const ProfilePage = () => {
 
         {/* Tab bar */}
         <div className="border-t border-gray-200 pt-2 px-4 flex gap-1 text-sm font-bold text-gray-500">
-          {TABS.map(tab => (
+          {(isOwnProfile ? TABS_OWN : TABS_PUBLIC).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -404,6 +418,26 @@ const ProfilePage = () => {
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
           <h2 className="font-bold text-xl mb-2 text-gray-800">รูปภาพ</h2>
           <p className="text-gray-400 text-sm">ยังไม่มีรูปภาพ</p>
+        </div>
+      )}
+
+      {/* Tab: บันทึก */}
+      {activeTab === 'บันทึก' && isOwnProfile && (
+        <div>
+          {savedLoading ? (
+            <div className="bg-white rounded-xl shadow-sm p-10 border border-gray-200 text-center text-gray-400">
+              <p className="text-2xl mb-2 animate-pulse">🔖</p>
+              <p className="font-medium text-[15px]">กำลังโหลด...</p>
+            </div>
+          ) : savedPosts.length > 0 ? (
+            savedPosts.map(p => <PostCard key={p.id} post={p} />)
+          ) : (
+            <div className="bg-white rounded-xl shadow-sm p-10 border border-gray-200 text-center text-gray-400">
+              <p className="text-4xl mb-2">🔖</p>
+              <p className="font-medium text-[15px]">ยังไม่มีโพสต์ที่บันทึกไว้</p>
+              <p className="text-sm mt-1">กดปุ่ม บันทึก ที่โพสต์ใดก็ได้เพื่อเก็บไว้ที่นี่</p>
+            </div>
+          )}
         </div>
       )}
 

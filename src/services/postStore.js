@@ -128,3 +128,22 @@ export async function addComment(postId, { text, meow, currentUser }) {
   })
   await updateDoc(doc(db, 'posts', postId), { commentCount: increment(1) })
 }
+
+export async function savePost(uid, postId) {
+  await setDoc(doc(db, 'users', uid, 'savedPosts', postId), { savedAt: serverTimestamp() })
+}
+
+export async function unsavePost(uid, postId) {
+  await deleteDoc(doc(db, 'users', uid, 'savedPosts', postId))
+}
+
+export function subscribeSavedPostIds(uid, onUpdate) {
+  const q = query(collection(db, 'users', uid, 'savedPosts'), orderBy('savedAt', 'desc'))
+  return onSnapshot(q, snap => onUpdate(snap.docs.map(d => d.id)), onErr)
+}
+
+export async function getPostById(postId) {
+  const snap = await getDoc(doc(db, 'posts', postId))
+  if (!snap.exists()) return null
+  return formatPost(snap)
+}
