@@ -1,0 +1,23 @@
+{
+  "rules": {
+    "inboxes": {
+      "$owner": {
+        ".read": "auth != null && auth.uid === $owner",
+        "$partner": {
+          ".write": "auth != null && (auth.uid === $owner || auth.uid === $partner)"
+        }
+      }
+    },
+    "chats": {
+      "$roomId": {
+        ".read": "auth != null && $roomId.contains(auth.uid)",
+        ".write": "auth != null && $roomId.contains(auth.uid)",
+        "messages": {
+          "$msgId": {
+            ".validate": "!data.exists() ? newData.child('senderId').val() === auth.uid : true"
+          }
+        }
+      }
+    }
+  }
+}
