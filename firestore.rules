@@ -28,6 +28,11 @@ service cloud.firestore {
         .hasAny(['role', 'isAdmin']);
     }
 
+    // True if `field` keeps the same value across an update (ownership immutability).
+    function unchanged(field) {
+      return request.resource.data[field] == resource.data[field];
+    }
+
     // Users
     match /users/{uid} {
       allow read: if isSignedIn();
@@ -49,13 +54,14 @@ service cloud.firestore {
     match /posts/{postId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin()) && unchanged('authorId');
       allow delete: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin());
 
       match /comments/{commentId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-        allow update, delete: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin());
+        allow update: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin()) && unchanged('authorId');
+        allow delete: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin());
       }
 
       match /reactions/{uid} {
@@ -75,7 +81,8 @@ service cloud.firestore {
     match /listings/{listingId} {
       allow read: if isSignedIn();
       allow create: if isSeller() && request.resource.data.sellerUid == request.auth.uid;
-      allow update, delete: if isSignedIn() && (resource.data.sellerUid == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() && (resource.data.sellerUid == request.auth.uid || isAdmin()) && unchanged('sellerUid');
+      allow delete: if isSignedIn() && (resource.data.sellerUid == request.auth.uid || isAdmin());
     }
 
     // Carts
@@ -87,7 +94,7 @@ service cloud.firestore {
     match /orders/{orderId} {
       allow read: if isSignedIn() && (resource.data.buyerUid == request.auth.uid || isAdmin());
       allow create: if isSignedIn() && request.resource.data.buyerUid == request.auth.uid;
-      allow update: if isSignedIn() && (
+      allow update: if isSignedIn() && unchanged('buyerUid') && (
         isAdmin() ||
         (resource.data.buyerUid == request.auth.uid &&
          request.resource.data.diff(resource.data).affectedKeys()
@@ -96,19 +103,20 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Adoptions
+    // Adoptions — contains contact info; require sign-in (app is login-gated).
     match /adoptions/{docId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (resource.data.posterUid == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() && (resource.data.posterUid == request.auth.uid || isAdmin()) && unchanged('posterUid');
+      allow delete: if isSignedIn() && (resource.data.posterUid == request.auth.uid || isAdmin());
     }
 
     // Events — organizer/admin may edit fully; anyone signed-in may only RSVP
     // (change attendeeUids).
     match /events/{docId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (
+      allow update: if isSignedIn() && unchanged('organizerUid') && (
         resource.data.organizerUid == request.auth.uid ||
         isAdmin() ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['attendeeUids'])
@@ -116,11 +124,11 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (resource.data.organizerUid == request.auth.uid || isAdmin());
     }
 
-    // Lost Cats
+    // Lost Cats — contains contact info; require sign-in (app is login-gated).
     match /lostcats/{docId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (resource.data.posterUid == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() && (resource.data.posterUid == request.auth.uid || isAdmin()) && unchanged('posterUid');
       allow delete: if isSignedIn() && (resource.data.posterUid == request.auth.uid || isAdmin());
     }
   }
