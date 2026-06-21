@@ -14,7 +14,7 @@
         ".write": "auth != null && $roomId.contains(auth.uid)",
         "messages": {
           "$msgId": {
-            ".validate": "!data.exists() ? newData.child('senderId').val() === auth.uid : true"
+            ".validate": "!data.exists() ? newData.child('from').val() === auth.uid : true"
           }
         }
       }
