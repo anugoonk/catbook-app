@@ -33,16 +33,29 @@ service cloud.firestore {
       return request.resource.data[field] == resource.data[field];
     }
 
+    // Optional-safe size cap: passes if the field is absent or null, otherwise it
+    // must be a string within maxLen bytes. Used to bound base64 images and free
+    // text so a single document can't be abused (Firestore also caps docs at 1MB).
+    function okSize(field, maxLen) {
+      return !(field in request.resource.data)
+        || request.resource.data[field] == null
+        || (request.resource.data[field] is string && request.resource.data[field].size() <= maxLen);
+    }
+
     // Users
     match /users/{uid} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow create: if isSignedIn() && request.auth.uid == uid
+        && okSize('avatar', 1000000) && okSize('cover', 1000000)
+        && okSize('bio', 2000) && okSize('name', 200);
       // Admin (email-based) can change anything incl. role; the user themself
       // can update their profile but NOT role/isAdmin (prevents self-promotion).
       allow update: if isSignedIn() && (
         isAdmin() ||
         (request.auth.uid == uid && notTouchingPrivileged())
-      );
+      )
+        && okSize('avatar', 1000000) && okSize('cover', 1000000)
+        && okSize('bio', 2000) && okSize('name', 200);
       allow delete: if isSignedIn() && (request.auth.uid == uid || isAdmin());
 
       match /savedPosts/{postId} {
@@ -53,14 +66,19 @@ service cloud.firestore {
     // Posts
     match /posts/{postId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin()) && unchanged('authorId');
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid
+        && okSize('content', 20000) && okSize('imageUrl', 1000000) && okSize('authorAvatar', 1000000);
+      allow update: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin())
+        && unchanged('authorId')
+        && okSize('content', 20000) && okSize('imageUrl', 1000000) && okSize('authorAvatar', 1000000);
       allow delete: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin());
 
       match /comments/{commentId} {
         allow read: if isSignedIn();
-        allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-        allow update: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin()) && unchanged('authorId');
+        allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid
+          && okSize('text', 5000);
+        allow update: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin())
+          && unchanged('authorId') && okSize('text', 5000);
         allow delete: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin());
       }
 
@@ -80,8 +98,10 @@ service cloud.firestore {
     // Listings (Marketplace) — only SELLER/ADMIN may create.
     match /listings/{listingId} {
       allow read: if isSignedIn();
-      allow create: if isSeller() && request.resource.data.sellerUid == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.sellerUid == request.auth.uid || isAdmin()) && unchanged('sellerUid');
+      allow create: if isSeller() && request.resource.data.sellerUid == request.auth.uid
+        && okSize('img', 1000000);
+      allow update: if isSignedIn() && (resource.data.sellerUid == request.auth.uid || isAdmin())
+        && unchanged('sellerUid') && okSize('img', 1000000);
       allow delete: if isSignedIn() && (resource.data.sellerUid == request.auth.uid || isAdmin());
     }
 
@@ -106,8 +126,11 @@ service cloud.firestore {
     // Adoptions — contains contact info; require sign-in (app is login-gated).
     match /adoptions/{docId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (resource.data.posterUid == request.auth.uid || isAdmin()) && unchanged('posterUid');
+      allow create: if isSignedIn()
+        && okSize('img', 1000000) && okSize('story', 10000) && okSize('contact', 500);
+      allow update: if isSignedIn() && (resource.data.posterUid == request.auth.uid || isAdmin())
+        && unchanged('posterUid')
+        && okSize('img', 1000000) && okSize('story', 10000) && okSize('contact', 500);
       allow delete: if isSignedIn() && (resource.data.posterUid == request.auth.uid || isAdmin());
     }
 
@@ -115,20 +138,23 @@ service cloud.firestore {
     // (change attendeeUids).
     match /events/{docId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && okSize('img', 1000000);
       allow update: if isSignedIn() && unchanged('organizerUid') && (
         resource.data.organizerUid == request.auth.uid ||
         isAdmin() ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['attendeeUids'])
-      );
+      ) && okSize('img', 1000000);
       allow delete: if isSignedIn() && (resource.data.organizerUid == request.auth.uid || isAdmin());
     }
 
     // Lost Cats — contains contact info; require sign-in (app is login-gated).
     match /lostcats/{docId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (resource.data.posterUid == request.auth.uid || isAdmin()) && unchanged('posterUid');
+      allow create: if isSignedIn()
+        && okSize('img', 1000000) && okSize('contact', 500) && okSize('marks', 5000);
+      allow update: if isSignedIn() && (resource.data.posterUid == request.auth.uid || isAdmin())
+        && unchanged('posterUid')
+        && okSize('img', 1000000) && okSize('contact', 500) && okSize('marks', 5000);
       allow delete: if isSignedIn() && (resource.data.posterUid == request.auth.uid || isAdmin());
     }
   }
