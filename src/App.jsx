@@ -11,7 +11,7 @@ import OnboardingModal from './components/OnboardingModal';
 import CookieConsent from './components/CookieConsent';
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const TermsPage   = lazy(() => import('./pages/TermsPage'));
-import { onAuthChange, firebaseSignOut } from './services/authFirebase';
+import { onAuthChange, firebaseSignOut, completeRedirectSignIn } from './services/authFirebase';
 import { getOrCreateUser } from './services/userStore';
 import { subscribeUnread, clearUnread } from './services/chatStore';
 import { subscribeSavedPostIds } from './services/postStore';
@@ -105,6 +105,9 @@ export default function App() {
   useEffect(() => {
     captureUtmContext();
     setSeoMeta(defaultSeoMeta);
+
+    // Finalize any pending redirect sign-in (in-app browsers use redirect, not popup).
+    completeRedirectSignIn().catch(() => {});
 
     const unsubscribe = onAuthChange(async (firebaseUser) => {
       if (firebaseUser) {

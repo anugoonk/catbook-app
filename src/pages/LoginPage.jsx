@@ -1,21 +1,29 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import PawIcon from '../components/PawIcon';
-import { signInWithGoogle } from '../services/authFirebase';
+import { signInWithGoogle, isInAppBrowser } from '../services/authFirebase';
+
+const ERROR_MESSAGES = {
+  'auth/popup-blocked': 'เบราว์เซอร์บล็อก popup — กำลังเปลี่ยนวิธีเข้าสู่ระบบ ลองอีกครั้ง',
+  'auth/operation-not-supported-in-this-environment': 'เบราว์เซอร์นี้ไม่รองรับ — กรุณาเปิดใน Chrome หรือ Safari',
+  'auth/network-request-failed': 'เชื่อมต่ออินเทอร์เน็ตไม่ได้ กรุณาลองใหม่',
+};
 
 const LoginPage = () => {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const inApp = isInAppBrowser();
 
   const handleGoogleLogin = async () => {
     setIsSubmitting(true);
     setError('');
     try {
       await signInWithGoogle();
-      // onAuthStateChanged ใน App.jsx จะจัดการ redirect เอง
+      // popup เสร็จ → onAuthStateChanged ใน App.jsx จัดการต่อ
+      // กรณี in-app browser จะ redirect ออกไปแล้วกลับมา (getRedirectResult)
     } catch (err) {
-      if (err.code !== 'auth/popup-closed-by-user') {
-        setError(err.code || err.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+        setError(ERROR_MESSAGES[err.code] || err.code || err.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่');
       }
     } finally {
       setIsSubmitting(false);
@@ -61,6 +69,17 @@ const LoginPage = () => {
 
       <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md space-y-4">
         <p className="text-center text-gray-500 text-sm">เข้าสู่ระบบเพื่อเริ่มใช้งาน CatBook</p>
+
+        {inApp && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm">
+            <p className="font-semibold mb-1">⚠️ เปิดในแอป (เช่น Facebook)</p>
+            <p className="text-xs leading-relaxed">
+              การเข้าสู่ระบบด้วย Google อาจไม่ทำงานในเบราว์เซอร์ของแอป
+              แนะนำให้กดเมนู <span className="font-semibold">⋯</span> มุมขวาบน
+              แล้วเลือก <span className="font-semibold">“เปิดในเบราว์เซอร์”</span> (Chrome / Safari)
+            </p>
+          </div>
+        )}
 
         {error && (
           <p className="text-red-500 text-sm font-medium text-center">{error}</p>
