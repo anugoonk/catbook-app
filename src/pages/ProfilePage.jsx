@@ -6,7 +6,7 @@ import PostCard from '../components/PostCard';
 import Toast from '../components/Toast';
 import useToast from '../hooks/useToast';
 import { useUser } from '../context/UserContext';
-import { updateUserProfile, deleteUserDoc, followUser, unfollowUser, getFollowing, clearUsersCache } from '../services/userStore';
+import { updateUserProfile, deleteUserDoc, followUser, unfollowUser, getFollowing, getCachedUsers, clearUsersCache } from '../services/userStore';
 import { subscribePostsByUser, updateAuthorInPosts, getPostById } from '../services/postStore';
 import { deleteUser } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -60,6 +60,8 @@ const ProfilePage = () => {
   const [showCoverPicker, setShowCoverPicker] = useState(false);
   const [savedPosts, setSavedPosts] = useState([]);
   const [savedLoading, setSavedLoading] = useState(false);
+  const [friends, setFriends] = useState([]);
+  const [friendsLoading, setFriendsLoading] = useState(false);
   const coverRef = useRef(null);
   const avatarRef = useRef(null);
 
@@ -81,6 +83,28 @@ const ProfilePage = () => {
     if (isOwnProfile || !profileUid) return;
     getFollowing(currentUser.uid).then(set => setIsFollowing(set.has(profileUid))).catch(() => {});
   }, [isOwnProfile, profileUid, currentUser.uid]);
+
+  useEffect(() => {
+    if (activeTab !== 'เพื่อนเหมียว' || !profileUid) return;
+    setFriendsLoading(true);
+    Promise.all([getCachedUsers(), getFollowing(profileUid)])
+      .then(([users, followingSet]) => {
+        const list = users
+          .filter(u => followingSet.has(u.uid) && u.activeCat?.name)
+          .map(u => ({
+            id: u.uid,
+            uid: u.uid,
+            name: u.activeCat?.name,
+            avatar: u.activeCat?.avatar || '/favicon.svg',
+            breed: u.activeCat?.breed || '',
+            bio: u.activeCat?.bio || '',
+            owner: u.name || '',
+          }));
+        setFriends(list);
+      })
+      .catch(() => setFriends([]))
+      .finally(() => setFriendsLoading(false));
+  }, [activeTab, profileUid]);
 
   useEffect(() => {
     if (activeTab !== 'บันทึก' || !isOwnProfile) return;
@@ -408,8 +432,38 @@ const ProfilePage = () => {
       {/* Tab: เพื่อนเหมียว */}
       {activeTab === 'เพื่อนเหมียว' && (
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-          <h2 className="font-bold text-xl mb-2 text-gray-800">เพื่อนเหมียวของ {profileCat.name}</h2>
-          <p className="text-gray-400 text-sm">ไปดูรายชื่อเพื่อนทั้งหมดได้ที่เมนู "เพื่อนเหมียว" 🐾</p>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-xl text-gray-800">
+              เพื่อนเหมียวของ {profileCat.name}
+              {!friendsLoading && friends.length > 0 && (
+                <span className="text-gray-400 font-normal text-base"> ({friends.length})</span>
+              )}
+            </h2>
+            <button onClick={() => navigate('/friends')} className="text-sm text-indigo-600 hover:underline shrink-0">
+              ดูทั้งหมด
+            </button>
+          </div>
+          {friendsLoading ? (
+            <p className="text-gray-400 text-sm animate-pulse">กำลังโหลด...</p>
+          ) : friends.length === 0 ? (
+            <p className="text-gray-400 text-sm">ยังไม่มีเพื่อนเหมียว 🐾 — ไปติดตามเพื่อนได้ที่เมนู "เพื่อนเหมียว"</p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {friends.map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => { setViewedCat(f); navigate('/profile'); }}
+                  className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition text-left"
+                >
+                  <img src={f.avatar} alt="" className="w-11 h-11 rounded-full object-cover shrink-0" />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-800 text-sm truncate">{f.name}</p>
+                    {f.breed && <p className="text-gray-400 text-xs truncate">{f.breed}</p>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
