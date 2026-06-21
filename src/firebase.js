@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app'
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
@@ -15,6 +16,26 @@ const firebaseConfig = {
 }
 
 const app = initializeApp(firebaseConfig)
+
+// App Check (reCAPTCHA v3) — blocks API calls from outside the real app.
+// Site key is public; enforcement is toggled in the Firebase Console.
+const appCheckSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY
+if (appCheckSiteKey) {
+  // In local dev, use a debug token so reCAPTCHA isn't required.
+  // Register the token printed in the console under App Check → Debug tokens.
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-undef
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true
+  }
+  try {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(appCheckSiteKey),
+      isTokenAutoRefreshEnabled: true,
+    })
+  } catch (e) {
+    console.warn('App Check init failed:', e)
+  }
+}
 
 export const auth = getAuth(app)
 export const googleProvider = new GoogleAuthProvider()
